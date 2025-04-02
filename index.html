@@ -3,31 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GraphQL Profile - Login</title>
+    <title>GraphQL Profile</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div class="container">
-        <div class="login-container">
-            <h1>Login to Your Profile</h1>
-            <div id="error-message" class="error-message"></div>
-            
-            <form id="login-form">
-                <div class="form-group">
-                    <label for="identifier">Username or Email</label>
-                    <input type="text" id="identifier" name="identifier" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                
-                <button type="submit" class="btn-login">Login</button>
-            </form>
-        </div>
-    </div>
-
+    <!-- Main container for content -->
+    <div id="app-container"></div>
+    
+    <!-- Scripts -->
     <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/profile.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
