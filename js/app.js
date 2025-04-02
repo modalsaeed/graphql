@@ -6,43 +6,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initApp() {
     // Check if user is logged in
-    const token = localStorage.getItem('jwt_token');
+    const isLoggedIn = window.authHelpers.checkAuthState();
     
     // Render the appropriate view
-    if (token && isTokenValid(token)) {
+    if (isLoggedIn) {
         renderProfilePage();
     } else {
         renderLoginPage();
-    }
-}
-
-function isTokenValid(token) {
-    try {
-        const payload = parseJwt(token);
-        const currentTime = Date.now() / 1000;
-        
-        // Check if token is expired
-        if (payload.exp && payload.exp < currentTime) {
-            return false;
-        }
-        return true;
-    } catch (e) {
-        return false;
-    }
-}
-
-function parseJwt(token) {
-    try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        
-        return JSON.parse(jsonPayload);
-    } catch (e) {
-        console.error('Error parsing JWT token', e);
-        return {};
     }
 }
 
@@ -85,13 +55,13 @@ async function handleLogin(e) {
     e.preventDefault();
     
     // Clear previous error messages
-    displayError('');
+    window.authHelpers.displayError('');
     
     const identifier = document.getElementById('identifier').value;
     const password = document.getElementById('password').value;
     
     if (!identifier || !password) {
-        displayError('Please enter both username/email and password');
+        window.authHelpers.displayError('Please enter both username/email and password');
         return;
     }
     
@@ -101,21 +71,8 @@ async function handleLogin(e) {
             renderProfilePage();
         }
     } catch (error) {
-        displayError(error.message || 'Login failed. Please check your credentials and try again.');
+        window.authHelpers.displayError(error.message || 'Login failed. Please check your credentials and try again.');
         console.error('Login error:', error);
     }
 }
 
-// Display error message
-function displayError(message) {
-    const errorMessage = document.getElementById('error-message');
-    if (!errorMessage) return;
-    
-    if (message) {
-        errorMessage.textContent = message;
-        errorMessage.classList.add('show');
-    } else {
-        errorMessage.textContent = '';
-        errorMessage.classList.remove('show');
-    }
-}
