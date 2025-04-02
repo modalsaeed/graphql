@@ -7,6 +7,62 @@ const GRAPHQL_ENDPOINT = `https://${API_DOMAIN}/api/graphql-engine/v1/graphql`;
 const loginForm = document.getElementById('login-form');
 const errorMessage = document.getElementById('error-message');
 
+// Authenticate user function
+async function authUser(identifier, password) {
+    // Determine if input is email or username
+    const isEmail = identifier.includes('@');
+    const authString = `${identifier}:${password}`;
+    
+    // Base64 encode credentials
+    const base64Credentials = btoa(authString);
+    
+    // Make request to authentication endpoint
+    const response = await fetch(AUTH_ENDPOINT, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Basic ${base64Credentials}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Authentication failed');
+    }
+    
+    const data = await response.json();
+    
+    // Store JWT token
+    localStorage.setItem('jwt_token', data.jwt);
+    return true;
+}
+
+// Logout function
+function logout() {
+    localStorage.removeItem('jwt_token');
+    // Reload the app to show login view
+    initApp();
+}
+
+// Get authentication token
+function getAuthToken() {
+    return localStorage.getItem('jwt_token');
+}
+
+// Get user ID from token
+function getUserId() {
+    const token = localStorage.getItem('jwt_token');
+    if (token) {
+        try {
+            const payload = parseJwt(token);
+            return payload.userId || payload.sub || null;
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+}
+
 // Check if user is already logged in
 function checkAuthState() {
     const token = localStorage.getItem('jwt_token');
@@ -71,33 +127,7 @@ if (loginForm) {
         }
         
         try {
-            // Determine if input is email or username
-            const isEmail = identifier.includes('@');
-            const authString = isEmail 
-                ? `${identifier}:${password}`
-                : `${identifier}:${password}`;
-            
-            // Base64 encode credentials
-            const base64Credentials = btoa(authString);
-            
-            // Make request to authentication endpoint
-            const response = await fetch(AUTH_ENDPOINT, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Basic ${base64Credentials}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Authentication failed');
-            }
-            
-            const data = await response.json();
-            
-            // Store JWT token
-            localStorage.setItem('jwt_token', data.jwt);
+            await authUser(identifier, password);
             
             // Redirect to profile page
             window.location.href = 'profile.html';
@@ -107,12 +137,6 @@ if (loginForm) {
             console.error('Login error:', error);
         }
     });
-}
-
-// Logout functionality
-function logout() {
-    localStorage.removeItem('jwt_token');
-    window.location.href = 'index.html';
 }
 
 // Add logout handler to any logout buttons on the page
@@ -141,18 +165,7 @@ function displayError(message) {
 
 // Expose functions for use in other scripts
 window.authHelpers = {
-    getToken: () => localStorage.getItem('jwt_token'),
-    getUserId: () => {
-        const token = localStorage.getItem('jwt_token');
-        if (token) {
-            try {
-                const payload = parseJwt(token);
-                return payload.userId || payload.sub || null;
-            } catch (e) {
-                return null;
-            }
-        }
-        return null;
-    },
+    getToken: getAuthToken,
+    getUserId: getUserId,
     logout: logout
 };
