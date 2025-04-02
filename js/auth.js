@@ -4,8 +4,14 @@ const AUTH_ENDPOINT = `https://${API_DOMAIN}/api/auth/signin`;
 const GRAPHQL_ENDPOINT = `https://${API_DOMAIN}/api/graphql-engine/v1/graphql`;
 
 // DOM Elements
-const loginForm = document.getElementById('login-form');
-const errorMessage = document.getElementById('error-message');
+let loginForm = null;
+let errorMessage = null;
+
+// Initialize DOM elements when needed
+function initDOMElements() {
+    loginForm = document.getElementById('login-form');
+    errorMessage = document.getElementById('error-message');
+}
 
 // Authenticate user function
 async function authUser(identifier, password) {
@@ -68,7 +74,7 @@ function checkAuthState() {
     const token = localStorage.getItem('jwt_token');
     
     if (token) {
-        // Verify token validity (you could check expiration)
+        // Verify token validity (check expiration)
         try {
             const payload = parseJwt(token);
             const currentTime = Date.now() / 1000;
@@ -76,22 +82,19 @@ function checkAuthState() {
             // If token is expired, clear it and show login
             if (payload.exp && payload.exp < currentTime) {
                 logout();
-                return;
+                return false;
             }
             
-            // If valid token exists and we're on login page, redirect to profile
-            if (window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/')) {
-                window.location.href = 'profile.html';
-            }
+            // Token is valid
+            return true;
         } catch (e) {
             logout();
-        }
-    } else {
-        // No token, ensure we're on login page
-        if (!window.location.pathname.endsWith('index.html') && !window.location.pathname.endsWith('/')) {
-            window.location.href = 'index.html';
+            return false;
         }
     }
+    
+    // No token found
+    return false;
 }
 
 // Parse JWT to get payload data
@@ -110,49 +113,12 @@ function parseJwt(token) {
     }
 }
 
-// Handle login form submission
-if (loginForm) {
-    loginForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Clear previous error messages
-        displayError('');
-        
-        const identifier = document.getElementById('identifier').value;
-        const password = document.getElementById('password').value;
-        
-        if (!identifier || !password) {
-            displayError('Please enter both username/email and password');
-            return;
-        }
-        
-        try {
-            await authUser(identifier, password);
-            
-            // Redirect to profile page
-            window.location.href = 'profile.html';
-            
-        } catch (error) {
-            displayError(error.message || 'Login failed. Please check your credentials and try again.');
-            console.error('Login error:', error);
-        }
-    });
-}
-
-// Add logout handler to any logout buttons on the page
-document.addEventListener('DOMContentLoaded', function() {
-    const logoutBtn = document.querySelector('.btn-logout');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', logout);
-    }
-    
-    // Check auth state on page load
-    checkAuthState();
-});
-
 // Display error message
 function displayError(message) {
-    if (!errorMessage) return;
+    if (!errorMessage) {
+        errorMessage = document.getElementById('error-message');
+        if (!errorMessage) return;
+    }
     
     if (message) {
         errorMessage.textContent = message;
@@ -163,9 +129,24 @@ function displayError(message) {
     }
 }
 
+// Add event listeners after DOM content is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize DOM elements
+    initDOMElements();
+    
+    // Check auth state on page load and render appropriate view
+    if (typeof initApp === 'function') {
+        initApp();
+    } else {
+        console.error('initApp function not found');
+    }
+});
+
 // Expose functions for use in other scripts
 window.authHelpers = {
     getToken: getAuthToken,
     getUserId: getUserId,
-    logout: logout
+    logout: logout,
+    checkAuthState: checkAuthState,
+    displayError: displayError
 };
