@@ -3,6 +3,48 @@ const API_DOMAIN = 'learn.reboot01.com'; // Replace with your actual domain
 const AUTH_ENDPOINT = `https://${API_DOMAIN}/api/auth/signin`;
 const GRAPHQL_ENDPOINT = `https://${API_DOMAIN}/api/graphql-engine/v1/graphql`;
 
+// Cookie utility functions
+function setCookie(name, value, days, secure = true, sameSite = 'strict') {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    
+    let cookieString = `${name}=${encodeURIComponent(value)}; expires=${expires.toUTCString()}; path=/`;
+    
+    if (secure) {
+        cookieString += '; Secure';
+    }
+    
+    cookieString += `; SameSite=${sameSite}`;
+    
+    // Set HttpOnly in production environments through server headers
+    document.cookie = cookieString;
+    console.log(`Cookie "${name}" set with expiration in ${days} days`);
+}
+
+function getCookie(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for(let i = 0; i < ca.length; i++) {
+        let c = ca[i].trim();
+        if (c.indexOf(nameEQ) === 0) {
+            try {
+                // Try to decode using decodeURIComponent first 
+                return decodeURIComponent(c.substring(nameEQ.length, c.length));
+            } catch (e) {
+                // If decoding fails, return the raw value
+                console.warn('Failed to decode cookie value with decodeURIComponent, returning raw value');
+                return c.substring(nameEQ.length, c.length);
+            }
+        }
+    }
+    return null;
+}
+
+function deleteCookie(name) {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    console.log(`Cookie "${name}" deleted`);
+}
+
 // DOM Elements
 let loginForm = null;
 let errorMessage = null;
@@ -13,7 +55,7 @@ function initDOMElements() {
     errorMessage = document.getElementById('error-message');
 }
 
-// Authenticate user function - updated for response format
+// Authenticate user function - updated to use cookies
 async function authUser(identifier, password) {
     try {
         console.log('Authentication attempt for identifier:', identifier);
@@ -50,7 +92,7 @@ async function authUser(identifier, password) {
         
         // For this API, we get the JWT directly as a string
         const jwtToken = await response.text();
-        console.log('Auth response (first 50 chars):', jwtToken.substring(0, 50) + '...');
+        console.log('Auth response:', jwtToken);
         
         // Validate it's a JWT by checking the format (header.payload.signature)
         if (!jwtToken || jwtToken.split('.').length !== 3) {
@@ -60,8 +102,9 @@ async function authUser(identifier, password) {
         
         console.log('JWT received successfully');
         
-        // Store JWT token
-        localStorage.setItem('jwt_token', jwtToken);
+        // Store JWT token in a cookie (15 day expiration)
+        // Note: For production, consider using HttpOnly cookies set by the server
+        setCookie('jwt_token', jwtToken, 15);
         
         // Verify the token is valid by parsing it
         const payload = parseJwt(jwtToken);
@@ -80,22 +123,70 @@ async function authUser(identifier, password) {
 
 // Logout function
 function logout() {
-    console.log('Logging out, removing JWT token');
-    localStorage.removeItem('jwt_token');
+    console.log('Logging out, removing JWT token cookie');
+    deleteCookie('jwt_token');
     // Reload the app to show login view
     initApp();
 }
 
-// Get authentication token
-function getAuthToken() {
-    const token = localStorage.getItem('jwt_token');
-    console.log('Retrieved token (truncated):', token ? `${token.substring(0, 20)}...` : 'No token found');
-    return token;
+// Helper function to ensure JWT is properly formatted with base64url encoding
+function ensureValidJWT(token) {
+    if (!token) return null;
+    
+    try {
+        // Basic trimming first
+        token = token.trim();
+        
+        // Verify it has three parts
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+            console.error('JWT does not have three parts');
+            return null;
+        }
+        
+        // Clean and validate each part
+        const base64UrlRegex = /^[A-Za-z0-9_-]+$/;
+        let needsCleaning = false;
+        
+        for (let i = 0; i < 3; i++) {
+            if (!base64UrlRegex.test(parts[i])) {
+                // Try to sanitize this part (remove any non-base64url chars)
+                const originalPart = parts[i];
+                parts[i] = parts[i].replace(/[^A-Za-z0-9_-]/g, '');
+                needsCleaning = true;
+            }
+        }
+        
+        if (needsCleaning) {
+            // Reassemble token after cleaning individual parts
+            token = parts.join('.');
+            console.log('JWT was repaired to ensure valid base64url format');
+        }
+        
+        return token;
+    } catch (e) {
+        console.error('Error in ensureValidJWT:', e);
+        return token; // Return the original token as a fallback
+    }
 }
 
-// Get user ID from token - updated to use standard JWT claims
+// Get authentication token
+function getAuthToken() {
+    const token = getCookie('jwt_token');
+    if (!token) {
+        console.log('No token found in cookies');
+        return null;
+    }
+    
+    // Ensure the token is properly formatted
+    const validToken = ensureValidJWT(token);
+    
+    return validToken || token; // Return valid token if available, otherwise original
+}
+
+// Get user ID from token - updated to use cookies
 function getUserId() {
-    const token = localStorage.getItem('jwt_token');
+    const token = getCookie('jwt_token');
     if (token) {
         try {
             const payload = parseJwt(token);
@@ -122,9 +213,9 @@ function getUserId() {
     return null;
 }
 
-// Check if user is already logged in - updated to use standard JWT
+// Check if user is already logged in - updated to use cookies
 function checkAuthState() {
-    const token = localStorage.getItem('jwt_token');
+    const token = getCookie('jwt_token');
     console.log('Checking auth state, token exists:', Boolean(token));
     
     if (!token) {
@@ -134,7 +225,7 @@ function checkAuthState() {
     // Verify token validity (check expiration)
     try {
         const payload = parseJwt(token);
-        console.log('Token payload for validation:', payload);
+
         
         // Check if payload was parsed successfully
         if (!payload || Object.keys(payload).length === 0) {
@@ -145,11 +236,7 @@ function checkAuthState() {
         
         // Check token expiration
         const currentTime = Math.floor(Date.now() / 1000);
-        console.log('Token expiration check:', {
-            currentTime: currentTime,
-            tokenExpiration: payload.exp,
-            isExpired: payload.exp && payload.exp < currentTime
-        });
+
         
         if (payload.exp && payload.exp < currentTime) {
             console.log('Token expired');
@@ -160,9 +247,7 @@ function checkAuthState() {
         // Verify we have a user ID in the token using standard claims
         const hasUserId = Boolean(payload.sub || payload.userId);
         
-        console.log('User identity check:', {
-            hasStandardUserId: hasUserId
-        });
+
         
         if (!hasUserId) {
             console.error('Token missing user identity');
@@ -183,6 +268,9 @@ function checkAuthState() {
 // Parse JWT to get payload data
 function parseJwt(token) {
     try {
+        // Ensure token is properly trimmed
+        token = token.trim();
+        
         // Check if token has the correct format (header.payload.signature)
         const parts = token.split('.');
         
@@ -192,19 +280,49 @@ function parseJwt(token) {
         
         const base64Url = parts[1]; // Get the payload part
         
-        // RFC 7515 compliant base64 url decode
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const rawPayload = atob(base64);
-        const jsonPayload = decodeURIComponent(
-            Array.from(rawPayload).map(c => 
-                '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-            ).join('')
-        );
+        // Handle base64url to base64 conversion with padding
+        let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         
-        const payload = JSON.parse(jsonPayload);
-        console.log('Successfully parsed JWT payload');
+        // Add padding if needed
+        switch (base64.length % 4) {
+            case 0:
+                break; // No padding needed
+            case 2:
+                base64 += '==';
+                break;
+            case 3:
+                base64 += '=';
+                break;
+            default:
+                throw new Error('Invalid base64 string length');
+        }
         
-        return payload;
+        try {
+            const rawPayload = atob(base64);
+            const jsonPayload = decodeURIComponent(
+                Array.from(rawPayload).map(c => 
+                    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+                ).join('')
+            );
+            
+            const payload = JSON.parse(jsonPayload);
+            console.log('Successfully parsed JWT payload');
+            
+            return payload;
+        } catch (decodeError) {
+            console.error('Error decoding JWT payload:', decodeError);
+            
+            // Last resort: Try to decode without transform for special cases
+            try {
+                const rawPayload = atob(base64);
+                const payload = JSON.parse(rawPayload);
+                console.log('Parsed JWT payload using fallback method');
+                return payload;
+            } catch (fallbackError) {
+                console.error('Fallback parsing failed:', fallbackError);
+                throw new Error('JWT payload decoding failed');
+            }
+        }
     } catch (e) {
         console.error('Error parsing JWT token:', e.message);
         return {};
@@ -229,6 +347,29 @@ function displayError(message) {
     }
 }
 
+// Manual token setting function for debugging purposes
+function setManualToken(rawToken) {
+    if (!rawToken || typeof rawToken !== 'string') {
+        console.error('Invalid token provided');
+        return false;
+    }
+    
+    // Clean up the token
+    rawToken = rawToken.trim();
+    
+    // Validate basic format
+    const parts = rawToken.split('.');
+    if (parts.length !== 3) {
+        console.error('Token does not have three parts');
+        return false;
+    }
+    
+    // Store the clean token
+    setCookie('jwt_token', rawToken, 15);
+    console.log('Manual token set successfully');
+    return true;
+}
+
 // Add event listeners after DOM content is loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing auth components');
@@ -250,4 +391,5 @@ window.authHelpers = {
     logout: logout,
     checkAuthState: checkAuthState,
     displayError: displayError,
+    setManualToken: setManualToken // Add this line
 };
