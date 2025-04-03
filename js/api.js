@@ -58,3 +58,23 @@ async function executeQuery(query, variables = {}) {
     }
 }
 
+async function fetchUserProfile() {
+    const query = `
+    query GetUserProfile {
+      user {
+        id
+        login
+        profile {
+          firstName
+          lastName
+          email
+        }
+        campus
+        attrs
+      }
+    }
+    `;
+    
+    return executeQuery(query);
+}
+
