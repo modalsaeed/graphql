@@ -51,6 +51,7 @@ async function executeQuery(query, variables = {}) {
             throw new Error(data.errors[0].message);
         }
         
+        console.log('GraphQL response:', data.data);
         return data.data;
     } catch (error) {
         console.error('GraphQL query error:', error);
@@ -60,17 +61,12 @@ async function executeQuery(query, variables = {}) {
 
 async function fetchUserProfile() {
     const query = `
-    query GetUserProfile {
-      user {
+    query {
+      user, {
         id
         login
-        profile {
-          firstName
-          lastName
-          email
-        }
-        campus
         attrs
+        campus
       }
     }
     `;
