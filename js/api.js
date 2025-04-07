@@ -125,3 +125,50 @@ async function getAlltransactions() {
     return transactions;
 
 }
+
+async function fetchLevels(limit = 50, offset = 0) {
+    ID = getUserId();
+    if (!ID) {
+        throw new Error('User ID not found');
+    }
+
+    const query = `query {
+                        transaction (limit:${limit}, offset:${lvlOffset}, where:{
+                            _and:[{userId:{_eq:${ID}}},{type:{_ilike:"%level%"}}]
+                            }
+                            ){
+                            type
+                            amount
+                            objectId
+                                object{
+                                    name
+                                }
+                            userId
+                            createdAt
+                            path
+                        }
+                    }`;
+    
+    return executeQuery(query);
+}
+
+async function getAllLevels() {
+    const limit = 50;
+    let offset = 0;
+    let levels = [];
+    let hasMore = true; 
+    while (hasMore) {
+        const data = await fetchLevels(limit, offset)
+
+        if (data.transaction && data.transaction.length > 0) {
+            levels = levels.concat(data.transaction);
+            offset += limit;
+        }else {
+            hasMore = false; 
+        }
+    }
+
+    console.log('All levels:', levels);
+    return levels;
+
+}
