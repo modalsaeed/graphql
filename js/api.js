@@ -133,7 +133,7 @@ async function fetchLevels(limit = 50, offset = 0) {
     }
 
     const query = `query {
-                        transaction (limit:${limit}, offset:${lvlOffset}, where:{
+                        transaction (limit:${limit}, offset:${offset}, where:{
                             _and:[{userId:{_eq:${ID}}},{type:{_ilike:"%level%"}}]
                             }
                             ){
@@ -170,5 +170,50 @@ async function getAllLevels() {
 
     console.log('All levels:', levels);
     return levels;
+
+}
+
+async function fetchUserSkills(limit = 50, offset = 0) {
+    ID = getUserId();
+    if (!ID) {
+        throw new Error('User ID not found');
+    }
+
+    const query = `query {
+                        transaction (limit:${limit}, offset:${offset}, where:{
+                            _and:[{userId:{_eq:${ID}}},{type:{_ilike:"%skill%"}}]
+                            }
+                            ){
+                            type
+                            amount
+                            objectId
+                                object{
+                                    name
+                                }
+                            createdAt
+                            path
+                        }
+                    }`;
+    return executeQuery(query);
+}
+
+async function getAllSkills() {
+    const limit = 50;
+    let offset = 0;
+    let skills = [];
+    let hasMore = true; 
+    while (hasMore) {
+        const data = await fetchUserSkills(limit, offset)
+
+        if (data.transaction && data.transaction.length > 0) {
+            skills = skills.concat(data.transaction);
+            offset += limit;
+        }else {
+            hasMore = false; 
+        }
+    }
+
+    console.log('All skills:', skills);
+    return skills;
 
 }
