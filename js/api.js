@@ -62,7 +62,7 @@ async function executeQuery(query, variables = {}) {
 async function fetchUserProfile() {
     const query = `
     query {
-      user, {
+      user {
         id
         login
         attrs
@@ -74,3 +74,54 @@ async function fetchUserProfile() {
     return executeQuery(query);
 }
 
+async function fetchUserTransactions(limit = 50, offset = 0) {
+    ID = getUserId();
+    if (!ID) {
+        throw new Error('User ID not found');
+    }
+
+    const query = `query {
+                        transaction (limit:${limit}, offset:${offset},where:{
+                            _and:[{userId:{_eq:${ID}}}, {_not:{
+                                _or:[
+                                    {type:{_ilike:"%level%"}},
+                                ]}
+                        }
+                        ]
+                        }
+                            ){
+                            type
+                            amount
+                            objectId
+                                object{
+                                    name
+                                }
+                            userId
+                            createdAt
+                            path
+                        }
+                    }`;
+    
+    return executeQuery(query);
+}
+
+async function getAlltransactions() {
+    const limit = 50;
+    let offset = 0;
+    let transactions = [];
+    let hasMore = true; 
+    while (hasMore) {
+        const data = await fetchUserTransactions(limit, offset)
+
+        if (data.transaction && data.transaction.length > 0) {
+            transactions = transactions.concat(data.transaction);
+            offset += limit;
+        }else {
+            hasMore = false; 
+        }
+    }
+
+    console.log('All transactions:', transactions);
+    return transactions;
+
+}
