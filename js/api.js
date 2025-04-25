@@ -140,3 +140,22 @@ async function fetchUserXpTransactions() {
     return executeQuery(query)
       .then(data => data.user.transactions);
 }
+
+async function fetchUserSkillTransactions() {
+    const query = `
+    query {
+      user {
+        skills: transactions(
+          where: {type: {_like: "%skill_%"}}, 
+          order_by: {id: asc}
+        ) {
+          amount
+          type
+        }
+      }
+    }
+    `;
+    
+    return executeQuery(query)
+      .then(data => data.user.skills);
+}
