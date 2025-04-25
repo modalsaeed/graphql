@@ -99,3 +99,24 @@ async function fetchUserProgresses() {
     return executeQuery(query)
       .then(data => data.user.progresses);
 }
+
+async function fetchUserAudits() {
+    const query = `
+    query {
+      user {
+        audits {
+          group {
+            captainLogin
+            auditors {
+              endAt
+            }
+          }
+          grade
+        }
+      }
+    }
+    `;
+    
+    return executeQuery(query)
+      .then(data => data.user.audits);
+}
