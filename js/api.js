@@ -120,3 +120,23 @@ async function fetchUserAudits() {
     return executeQuery(query)
       .then(data => data.user.audits);
 }
+
+async function fetchUserXpTransactions() {
+    const query = `
+    query {
+      user {
+        transactions(
+          where: {type: {_eq: "xp"}, eventId: {_is_null: false}}, 
+          order_by: {createdAt: asc}
+        ) {
+          amount
+          createdAt
+          path
+        }
+      }
+    }
+    `;
+    
+    return executeQuery(query)
+      .then(data => data.user.transactions);
+}
