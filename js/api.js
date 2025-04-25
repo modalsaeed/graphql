@@ -76,3 +76,26 @@ async function fetchUserBasicInfo() {
     
     return executeQuery(query);
 }
+
+async function fetchUserProgresses() {
+    const query = `
+    query {
+      user {
+        progresses(order_by: {updatedAt: desc}) {
+          path
+          createdAt
+          grade
+          group {
+            captainLogin
+            auditors {
+              auditorLogin
+            }
+          }
+        }
+      }
+    }
+    `;
+    
+    return executeQuery(query)
+      .then(data => data.user.progresses);
+}
