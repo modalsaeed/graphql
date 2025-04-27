@@ -714,7 +714,560 @@ function handleSkillClick(skill, skillHistoryData) {
     detailContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+function renderXpLineChart(data) {
+    const container = document.getElementById('xp-graph');
+    if (!container) {
+        console.error('Element with ID xp-graph not found');
+        return;
+    }
+    
+    // Clear previous content
+    container.innerHTML = '';
+    
+    // Create tabs container
+    const tabsContainer = document.createElement('div');
+    tabsContainer.className = 'xp-tabs';
+    tabsContainer.style.cssText = 'display: flex; justify-content: center; margin-bottom: 15px;';
+    container.appendChild(tabsContainer);
+    
+    // Create tabs for each category
+    const categories = ['piscineGo', 'piscineJs', 'module'];
+    const tabLabels = {
+        'piscineGo': 'Piscine Go',
+        'piscineJs': 'Piscine JS',
+        'module': 'Module'
+    };
+    
+    let activeTab = categories[0]; // Default active tab
+    
+    categories.forEach(category => {
+        const tab = document.createElement('div');
+        tab.className = 'xp-tab';
+        tab.textContent = `${tabLabels[category]} (${formatXp(data.totals[category])})`;
+        tab.dataset.category = category;
+        tab.style.cssText = 'padding: 8px 15px; margin: 0 5px; cursor: pointer; border-radius: 5px; transition: all 0.2s ease;';
+        
+        if (category === activeTab) {
+            tab.style.backgroundColor = '#4CAF50';
+            tab.style.color = 'white';
+        } else {
+            tab.style.backgroundColor = '#f0f0f0';
+            tab.style.color = '#333';
+        }
+        
+        tab.addEventListener('click', () => {
+            // Update active tab
+            activeTab = category;
+            
+            // Update tab styles
+            document.querySelectorAll('.xp-tab').forEach(t => {
+                if (t.dataset.category === activeTab) {
+                    t.style.backgroundColor = '#4CAF50';
+                    t.style.color = 'white';
+                } else {
+                    t.style.backgroundColor = '#f0f0f0';
+                    t.style.color = '#333';
+                }
+            });
+            
+            // Redraw chart with selected data
+            drawChart(data[category], container.clientWidth, 300);
+        });
+        
+        tabsContainer.appendChild(tab);
+    });
+    
+    // Create chart container
+    const chartContainer = document.createElement('div');
+    chartContainer.className = 'xp-chart-container';
+    chartContainer.style.position = 'relative';
+    container.appendChild(chartContainer);
+    
+    // Draw initial chart
+    drawChart(data[activeTab], container.clientWidth, 300);
+    
+    // Function to format XP values
+    function formatXp(xp) {
+        if (xp >= 1000000) {
+            return `${(xp / 1000000).toFixed(1)}M`;
+        } else if (xp >= 1000) {
+            return `${(xp / 1000).toFixed(1)}K`;
+        } else {
+            return xp.toString();
+        }
+    }
+    
+    // Function to draw the chart
+    function drawChart(dataPoints, width, height) {
+        // Clear previous chart
+        chartContainer.innerHTML = '';
+        
+        if (!dataPoints || dataPoints.length === 0) {
+            chartContainer.innerHTML = '<p style="text-align: center; padding: 40px;">No data available for this category.</p>';
+            return;
+        }
+        
+        // Sort data points by timestamp
+        const sortedData = [...dataPoints].sort((a, b) => a.timestamp - b.timestamp);
+        
+        // Setup SVG dimensions
+        const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+        
+        // Create SVG element
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', width);
+        svg.setAttribute('height', height);
+        chartContainer.appendChild(svg);
+        
+        // Create chart group
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('transform', `translate(${margin.left},${margin.top})`);
+        svg.appendChild(g);
+        
+        // Compute date range
+        const dateMin = new Date(sortedData[0].timestamp);
+        const dateMax = new Date(sortedData[sortedData.length - 1].timestamp);
+        
+        // Add some padding to the date range (5% on each side)
+        const dateRange = dateMax - dateMin;
+        const extendedDateMin = new Date(dateMin.getTime() - dateRange * 0.05);
+        const extendedDateMax = new Date(dateMax.getTime() + dateRange * 0.05);
+        
+        // Create scales
+        const xScale = (date) => {
+            return ((date - extendedDateMin) / (extendedDateMax - extendedDateMin)) * chartWidth;
+        };
+        
+        const yScale = (xp) => {
+            return chartHeight - (xp / sortedData[sortedData.length - 1].cumulative * 1.1) * chartHeight;
+        };
+        
+        // Add grid lines
+        // Horizontal grid lines
+        const yTickCount = 5;
+        for (let i = 0; i <= yTickCount; i++) {
+            const yPos = chartHeight * (i / yTickCount);
+            const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            gridLine.setAttribute('x1', 0);
+            gridLine.setAttribute('y1', yPos);
+            gridLine.setAttribute('x2', chartWidth);
+            gridLine.setAttribute('y2', yPos);
+            gridLine.setAttribute('stroke', '#e0e0e0');
+            gridLine.setAttribute('stroke-dasharray', '3,3');
+            g.appendChild(gridLine);
+            
+            // Y-axis labels
+            const yValue = sortedData[sortedData.length - 1].cumulative * (1 - i / yTickCount) * 1.1;
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', -10);
+            label.setAttribute('y', yPos);
+            label.setAttribute('text-anchor', 'end');
+            label.setAttribute('alignment-baseline', 'middle');
+            label.setAttribute('font-size', '12px');
+            label.setAttribute('fill', '#666');
+            label.textContent = formatXp(Math.round(yValue));
+            g.appendChild(label);
+        }
+        
+        // X-axis (Date)
+        const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        xAxis.setAttribute('transform', `translate(0,${chartHeight})`);
+        g.appendChild(xAxis);
+        
+        // X-axis line
+        const xAxisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        xAxisLine.setAttribute('x1', 0);
+        xAxisLine.setAttribute('y1', 0);
+        xAxisLine.setAttribute('x2', chartWidth);
+        xAxisLine.setAttribute('y2', 0);
+        xAxisLine.setAttribute('stroke', '#666');
+        xAxis.appendChild(xAxisLine);
+        
+        // X-axis ticks and labels
+        const xTickCount = Math.min(sortedData.length, 6);
+        for (let i = 0; i <= xTickCount; i++) {
+            const xPos = chartWidth * (i / xTickCount);
+            
+            // Tick
+            const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            tick.setAttribute('x1', xPos);
+            tick.setAttribute('y1', 0);
+            tick.setAttribute('x2', xPos);
+            tick.setAttribute('y2', 5);
+            tick.setAttribute('stroke', '#666');
+            xAxis.appendChild(tick);
+            
+            // Date label
+            const date = new Date(extendedDateMin.getTime() + (extendedDateMax - extendedDateMin) * (i / xTickCount));
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', xPos);
+            label.setAttribute('y', 20);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '12px');
+            label.setAttribute('fill', '#666');
+            label.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            xAxis.appendChild(label);
+        }
+        
+        // Y-axis line
+        const yAxisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        yAxisLine.setAttribute('x1', 0);
+        yAxisLine.setAttribute('y1', 0);
+        yAxisLine.setAttribute('x2', 0);
+        yAxisLine.setAttribute('y2', chartHeight);
+        yAxisLine.setAttribute('stroke', '#666');
+        g.appendChild(yAxisLine);
+        
+        // Y-axis label
+        const yAxisLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        yAxisLabel.setAttribute('transform', `translate(-40,${chartHeight/2}) rotate(-90)`);
+        yAxisLabel.setAttribute('text-anchor', 'middle');
+        yAxisLabel.setAttribute('font-size', '14px');
+        yAxisLabel.setAttribute('fill', '#333');
+        yAxisLabel.textContent = 'XP';
+        g.appendChild(yAxisLabel);
+        
+        // X-axis label
+        const xAxisLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        xAxisLabel.setAttribute('x', chartWidth / 2);
+        xAxisLabel.setAttribute('y', chartHeight + 40);
+        xAxisLabel.setAttribute('text-anchor', 'middle');
+        xAxisLabel.setAttribute('font-size', '14px');
+        xAxisLabel.setAttribute('fill', '#333');
+        xAxisLabel.textContent = 'Date';
+        g.appendChild(xAxisLabel);
+        
+        // Draw line
+        let pathData = '';
+        
+        sortedData.forEach((dataPoint, i) => {
+            const x = xScale(new Date(dataPoint.timestamp));
+            const y = yScale(dataPoint.cumulative);
+            
+            if (i === 0) {
+                pathData = `M ${x} ${y}`;
+            } else {
+                pathData += ` L ${x} ${y}`;
+            }
+        });
+        
+        // Create path element
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', pathData);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', '#4CAF50');
+        path.setAttribute('stroke-width', '3');
+        path.setAttribute('stroke-linejoin', 'round');
+        g.appendChild(path);
+        
+        // Create area under the line
+        let areaPathData = pathData;
+        areaPathData += ` L ${xScale(new Date(sortedData[sortedData.length - 1].timestamp))} ${chartHeight}`;
+        areaPathData += ` L ${xScale(new Date(sortedData[0].timestamp))} ${chartHeight}`;
+        areaPathData += ' Z';
+        
+        const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        areaPath.setAttribute('d', areaPathData);
+        areaPath.setAttribute('fill', 'rgba(76, 175, 80, 0.1)');
+        areaPath.setAttribute('stroke', 'none');
+        g.insertBefore(areaPath, path); // Insert area behind the line
+        
+        // Add data points with tooltips
+        sortedData.forEach((dataPoint) => {
+            const x = xScale(new Date(dataPoint.timestamp));
+            const y = yScale(dataPoint.cumulative);
+            
+            // Create circle for data point
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', x);
+            circle.setAttribute('cy', y);
+            circle.setAttribute('r', '4');
+            circle.setAttribute('fill', '#4CAF50');
+            circle.setAttribute('stroke', '#fff');
+            circle.setAttribute('stroke-width', '2');
+            g.appendChild(circle);
+            
+            // Create tooltip group
+            const tooltip = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            tooltip.setAttribute('opacity', '0');
+            tooltip.style.pointerEvents = 'none';
+            g.appendChild(tooltip);
+            
+            // Tooltip background
+            const tooltipBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            tooltipBg.setAttribute('x', x - 75);
+            tooltipBg.setAttribute('y', y - 65);
+            tooltipBg.setAttribute('width', '150');
+            tooltipBg.setAttribute('height', '50');
+            tooltipBg.setAttribute('rx', '5');
+            tooltipBg.setAttribute('ry', '5');
+            tooltipBg.setAttribute('fill', 'rgba(0, 0, 0, 0.7)');
+            tooltip.appendChild(tooltipBg);
+            
+            // Tooltip text - date
+            const dateText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            dateText.setAttribute('x', x);
+            dateText.setAttribute('y', y - 45);
+            dateText.setAttribute('text-anchor', 'middle');
+            dateText.setAttribute('fill', '#fff');
+            dateText.setAttribute('font-size', '12px');
+            dateText.textContent = dataPoint.date;
+            tooltip.appendChild(dateText);
+            
+            // Tooltip text - XP info
+            const xpText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            xpText.setAttribute('x', x);
+            xpText.setAttribute('y', y - 25);
+            xpText.setAttribute('text-anchor', 'middle');
+            xpText.setAttribute('fill', '#fff');
+            xpText.setAttribute('font-size', '12px');
+            xpText.textContent = `+${formatXp(dataPoint.amount)} XP (Total: ${formatXp(dataPoint.cumulative)})`;
+            tooltip.appendChild(xpText);
+            
+            // Mouse events for tooltip
+            circle.addEventListener('mouseover', () => {
+                tooltip.setAttribute('opacity', '1');
+                circle.setAttribute('r', '6');
+            });
+            
+            circle.addEventListener('mouseout', () => {
+                tooltip.setAttribute('opacity', '0');
+                circle.setAttribute('r', '4');
+            });
+        });
+    }
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (container.clientWidth > 0) {
+            drawChart(data[activeTab], container.clientWidth, 300);
+        }
+    });
+}
 
+function renderProgressTable(progressData) {
+    // Check if progressData exists and has the expected structure
+    if (!progressData || !progressData.module || !progressData.piscineGo || !progressData.piscineJs) {
+        console.error('Progress data is missing or has incorrect format', progressData);
+        return;
+    }
+    
+    // Create container for the tabs and tables
+    const container = document.getElementById('progress-graph');
+    
+    // Create tab navigation
+    const tabsHTML = `
+        <div class="progress-tabs">
+            <button class="tab-button active" data-tab="module">Module</button>
+            <button class="tab-button" data-tab="piscineGo">Piscine Go</button>
+            <button class="tab-button" data-tab="piscineJs">Piscine JS</button>
+        </div>
+        
+        <div class="progress-tables-container">
+            <div id="module-table" class="progress-table active"></div>
+            <div id="piscineGo-table" class="progress-table"></div>
+            <div id="piscineJs-table" class="progress-table"></div>
+        </div>
+    `;
+    
+    container.innerHTML = tabsHTML;
+    
+    // Function to generate a table for a specific category
+    function generateTable(entries, containerId) {
+        const tableContainer = document.getElementById(containerId);
+        
+        if (!entries || entries.length === 0) {
+            tableContainer.innerHTML = '<p class="no-data">No data available for this category.</p>';
+            return;
+        }
+        
+        // Create table HTML
+        let tableHTML = `
+            <table class="progress-data-table">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>Date</th>
+                        <th>Grade</th>
+                        <th>Status</th>
+                        <th>Captain</th>
+                        <th>Auditors</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        // Add rows for each entry
+        entries.forEach(entry => {
+            // Extract project name from path
+            const pathParts = entry.path.split('/');
+            const projectName = pathParts[pathParts.length - 1];
+            
+            // Format grade with 2 decimal places if it exists
+            const formattedGrade = entry.grade !== null ? entry.grade.toFixed(2) : '-';
+            
+            // Status based on isCompleted
+            const status = entry.isCompleted ? 
+                '<span class="status-completed">Completed</span>' : 
+                '<span class="status-incomplete">In Progress</span>';
+            
+            // Captain and auditors
+            const captain = entry.group?.captainLogin || '-';
+            
+            let auditors = '-';
+            if (entry.group && entry.group.auditors && entry.group.auditors.length > 0) {
+                // Show count and display full list on hover
+                const auditorCount = entry.group.auditors.length;
+                const auditorList = entry.group.auditors
+                    .map(a => a.auditorLogin)
+                    .join(', ');
+                
+                auditors = `<span class="auditor-count" title="${auditorList}">${auditorCount} auditors</span>`;
+            }
+            
+            tableHTML += `
+                <tr class="${entry.isCompleted ? 'completed' : 'incomplete'}">
+                    <td>${projectName}</td>
+                    <td>${entry.formattedDate}</td>
+                    <td>${formattedGrade}</td>
+                    <td>${status}</td>
+                    <td>${captain}</td>
+                    <td>${auditors}</td>
+                </tr>
+            `;
+        });
+        
+        tableHTML += `
+                </tbody>
+            </table>
+        `;
+        
+        tableContainer.innerHTML = tableHTML;
+    }
+    
+    // Generate tables for each category
+    generateTable(progressData.module, 'module-table');
+    generateTable(progressData.piscineGo, 'piscineGo-table');
+    generateTable(progressData.piscineJs, 'piscineJs-table');
+    
+    // Add tab switching functionality
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tables = document.querySelectorAll('.progress-table');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove active class from all buttons and tables
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tables.forEach(table => table.classList.remove('active'));
+            
+            // Add active class to current button and corresponding table
+            button.classList.add('active');
+            const tabCategory = button.getAttribute('data-tab');
+            document.getElementById(`${tabCategory}-table`).classList.add('active');
+        });
+    });
+    
+    // Add some CSS for the tables
+    const style = document.createElement('style');
+    style.textContent = `
+        .progress-tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .tab-button {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .tab-button:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+        
+        .tab-button.active {
+            border-bottom: 3px solid #4a90e2;
+            font-weight: bold;
+        }
+        
+        .progress-tables-container {
+            position: relative;
+        }
+        
+        .progress-table {
+            display: none;
+            width: 100%;
+            overflow-x: auto;
+        }
+        
+        .progress-table.active {
+            display: block;
+        }
+        
+        .progress-data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .progress-data-table th, 
+        .progress-data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .progress-data-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .progress-data-table tr:hover {
+            background-color: rgba(0,0,0,0.02);
+        }
+        
+        .status-completed {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .status-incomplete {
+            color: #dc3545;
+        }
+        
+        .auditor-count {
+            color: #6c757d;
+            cursor: help;
+            text-decoration: underline dotted;
+        }
+        
+        tr.completed {
+            background-color: rgba(40, 167, 69, 0.05);
+        }
+        
+        tr.incomplete {
+            background-color: rgba(220, 53, 69, 0.05);
+        }
+        
+        .no-data {
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Export the function to the window object
 window.renderAuditRatioPieChart = renderAuditRatioPieChart;
 window.renderSkillsBarChart = renderSkillsBarChart;
 window.renderSkillHistoryChart = renderSkillHistoryChart;
+window.renderXpLineChart = renderXpLineChart;
+window.renderProgressTable = renderProgressTable;
