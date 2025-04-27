@@ -153,4 +153,4 @@ function renderAuditRatioPieChart(up, down) {
     });
 }
 
-export { renderAuditRatioPieChart };
+window.renderAuditRatioPieChart = renderAuditRatioPieChart;

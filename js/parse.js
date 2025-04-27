@@ -243,4 +243,3 @@ function formatDate(date) {
     return date.toLocaleDateString('en-US', options);
 }
 
-export { parseSkillTransactions, parseXpTransactions, parseUserProgress };

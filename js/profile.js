@@ -1,6 +1,5 @@
 // js/profile.js
-// Import render functions from charts.js
-import { renderAuditRatioPieChart } from './charts.js';
+
 
 // Handle rendering the profile page and loading user data
 
@@ -130,6 +129,3 @@ async function renderProfilePage() {
         document.getElementById('btn-logout').addEventListener('click', logout);
     }
 }
-
-// Export the renderProfilePage function so it can be imported in app.js
-export { renderProfilePage };
