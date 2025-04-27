@@ -1,4 +1,7 @@
 // js/profile.js
+// Import render functions from charts.js
+import { renderAuditRatioPieChart } from './charts.js';
+
 // Handle rendering the profile page and loading user data
 
 async function renderProfilePage() {
@@ -16,25 +19,23 @@ async function renderProfilePage() {
     
     try {
         // Fetch user data in parallel
-        const [userProfile, userXP, userProgress, userResults] = await Promise.all([
-            fetchUserProfile(),
-            fetchUserXP(),
-            fetchUserProgress(),
-            fetchUserResults()
+        const [basicInfo, progresses,xpTransactions, skillTransactions] = await Promise.all([
+            fetchUserBasicInfo(),
+            fetchUserProgresses(),
+            fetchUserXpTransactions(),
+            fetchUserSkillTransactions()
         ]);
         
         // Process data for display and charts
-        const totalXP = calculateTotalXP(userXP);
-        const progressStats = processProgressData(userProgress);
-        const resultStats = processResultData(userResults);
+
         
         // Render the profile page with the data
         appContainer.innerHTML = `
             <div class="profile-container">
                 <header class="profile-header">
                     <div class="profile-info">
-                        <h1>Welcome, ${userProfile.user[0].login}</h1>
-                        <p>User ID: ${userProfile.user[0].id}</p>
+                        <h1>Welcome, ${basicInfo.user[0].login}</h1>
+                        <p>${basicInfo.user[0].firstName} ${basicInfo.user[0].lastName}</p>
                     </div>
                     <div class="profile-controls">
                         <button id="btn-logout" class="btn-logout">Logout</button>
@@ -43,35 +44,58 @@ async function renderProfilePage() {
                 
                 <div class="profile-content">
                     <section class="profile-section">
+                        <h2>User Statistics</h2>
+                        <div class="stats-grid">
+                            <div class="info-card">
+                                <h3>Audit Ratio</h3>
+                                <div class="ratio-value">${(basicInfo.user[0].auditRatio).toFixed(2)}</div>
+                            </div>
+                            <div class="info-card">
+                                <h3>User ID</h3>
+                                <div class="id-value">${basicInfo.user[0].id}</div>
+                            </div>
+                        </div>
+                        <div id="auditRatio-graph" class="chart-container">
+                            <!-- Audit ratio pie chart will be rendered here -->
+                        </div>
+                    </section>
+                    
+                    <section class="profile-section">
                         <h2>XP Overview</h2>
                         <div class="info-card">
                             <h3>Total XP Earned</h3>
-                            <div class="xp-value">${totalXP.toLocaleString()}</div>
+                            <div class="xp-value">1</div>
                         </div>
-                        <div id="xp-chart" class="chart-container">
+                        <div id="xp-graph" class="chart-container">
                             <!-- XP chart will be rendered here -->
                         </div>
                     </section>
                     
                     <section class="profile-section">
-                        <h2>Progress Overview</h2>
+                        <h2>Skills</h2>
                         <div class="info-card">
-                            <h3>Completion Rate</h3>
-                            <div class="progress-value">${progressStats.completionRate}%</div>
+                            <h3>Skills Overview</h3>
+                            <p>Click on a skill to see its progress over time</p>
                         </div>
-                        <div id="progress-chart" class="chart-container">
-                            <!-- Progress chart will be rendered here -->
+                        <div id="skills-graph" class="chart-container">
+                            <!-- Skills chart will be rendered here -->
+                        </div>
+                        <div id="skill-detail-graph" class="chart-container" style="display:none;">
+                            <!-- Selected skill detail chart will appear here -->
                         </div>
                     </section>
                     
                     <section class="profile-section">
-                        <h2>Results</h2>
-                        <div class="info-card">
-                            <h3>Success Rate</h3>
-                            <div class="success-value">${resultStats.successRate}%</div>
-                        </div>
-                        <div id="results-chart" class="chart-container">
-                            <!-- Results chart will be rendered here -->
+                        <h2>Progress Overview</h2>
+                        <div class="tab-container">
+                            <div class="tabs">
+                                <button class="tab-btn active" data-tab="piscine-go">Piscine Go</button>
+                                <button class="tab-btn" data-tab="piscine-js">Piscine JS</button>
+                                <button class="tab-btn" data-tab="modules">Modules</button>
+                            </div>
+                            <div id="progress-graph" class="chart-container">
+                                <!-- Progress chart will be rendered here -->
+                            </div>
                         </div>
                     </section>
                 </div>
@@ -82,9 +106,10 @@ async function renderProfilePage() {
         document.getElementById('btn-logout').addEventListener('click', logout);
         
         // Render charts
-        renderXPChart('xp-chart', userXP);
-        renderProgressChart('progress-chart', userProgress);
-        renderResultsChart('results-chart', userResults);
+        renderAuditRatioPieChart(basicInfo.user[0].totalUp, basicInfo.user[0].totalDown);
+        // renderXPChart('xp-graph', xpTransactions);
+        // renderProgressChart('progress-graph', progresses);
+        // renderResultsChart('auditRatio-graph', basicInfo);
         
     } catch (error) {
         console.error('Error loading profile data:', error);
@@ -106,36 +131,5 @@ async function renderProfilePage() {
     }
 }
 
-// Helper functions for data processing
-
-function calculateTotalXP(xpData) {
-    if (!xpData || !xpData.transaction) return 0;
-    
-    return xpData.transaction.reduce((total, tx) => {
-        return total + (tx.amount || 0);
-    }, 0);
-}
-
-function processProgressData(progressData) {
-    if (!progressData || !progressData.progress || !progressData.progress.length) {
-        return { completionRate: 0, totalItems: 0, completedItems: 0 };
-    }
-    
-    const totalItems = progressData.progress.length;
-    const completedItems = progressData.progress.filter(item => item.grade > 0).length;
-    const completionRate = Math.round((completedItems / totalItems) * 100);
-    
-    return { completionRate, totalItems, completedItems };
-}
-
-function processResultData(resultData) {
-    if (!resultData || !resultData.result || !resultData.result.length) {
-        return { successRate: 0, totalItems: 0, passedItems: 0 };
-    }
-    
-    const totalItems = resultData.result.length;
-    const passedItems = resultData.result.filter(item => item.grade > 0).length;
-    const successRate = Math.round((passedItems / totalItems) * 100);
-    
-    return { successRate, totalItems, passedItems };
-}
+// Export the renderProfilePage function so it can be imported in app.js
+export { renderProfilePage };
