@@ -56,6 +56,117 @@ function parseSkillTransactions(skillTransactions) {
     };
 }
 
+function parseXpTransactions(xpTransactions) {
+    if (!xpTransactions || !xpTransactions[0] || !xpTransactions[0].transactions) {
+        return { piscineGo: [], piscineJs: [], module: [] };
+    }
+
+    const transactions = xpTransactions[0].transactions;
+    
+    // Initialize data structures for each category
+    const piscineGo = [];
+    const piscineJs = [];
+    const module = [];
+    
+    // Track cumulative XP for each category
+    let cumulativePiscineGo = 0;
+    let cumulativePiscineJs = 0;
+    let cumulativeModule = 0;
+    
+    // Map to store transactions grouped by date for each category
+    const piscineGoByDate = {};
+    const piscineJsByDate = {};
+    const moduleByDate = {};
+    
+    // Process each transaction
+    transactions.forEach(transaction => {
+        const path = transaction.path;
+        const date = new Date(transaction.createdAt);
+        const formattedDate = formatDate(date);
+        const amount = transaction.amount;
+        
+        // Categorize transactions
+        if (path.includes('bh-piscine')) {
+            // Piscine GO
+            cumulativePiscineGo += amount;
+            
+            if (!piscineGoByDate[formattedDate]) {
+                piscineGoByDate[formattedDate] = { 
+                    date: formattedDate, 
+                    timestamp: date.getTime(),
+                    amount: 0,
+                    cumulative: 0
+                };
+            }
+            
+            piscineGoByDate[formattedDate].amount += amount;
+            piscineGoByDate[formattedDate].cumulative = cumulativePiscineGo;
+            
+        } else if (path.includes('piscine-js')) {
+            // Piscine JS
+            cumulativePiscineJs += amount;
+            
+            if (!piscineJsByDate[formattedDate]) {
+                piscineJsByDate[formattedDate] = { 
+                    date: formattedDate, 
+                    timestamp: date.getTime(),
+                    amount: 0,
+                    cumulative: 0
+                };
+            }
+            
+            piscineJsByDate[formattedDate].amount += amount;
+            piscineJsByDate[formattedDate].cumulative = cumulativePiscineJs;
+            
+        } else if (path.includes('bh-module')) {
+            // Module
+            cumulativeModule += amount;
+            
+            if (!moduleByDate[formattedDate]) {
+                moduleByDate[formattedDate] = { 
+                    date: formattedDate, 
+                    timestamp: date.getTime(),
+                    amount: 0,
+                    cumulative: 0
+                };
+            }
+            
+            moduleByDate[formattedDate].amount += amount;
+            moduleByDate[formattedDate].cumulative = cumulativeModule;
+        }
+    });
+    
+    // Convert date maps to arrays and sort by date
+    for (const dateKey in piscineGoByDate) {
+        piscineGo.push(piscineGoByDate[dateKey]);
+    }
+    
+    for (const dateKey in piscineJsByDate) {
+        piscineJs.push(piscineJsByDate[dateKey]);
+    }
+    
+    for (const dateKey in moduleByDate) {
+        module.push(moduleByDate[dateKey]);
+    }
+    
+    // Sort each array by timestamp
+    piscineGo.sort((a, b) => a.timestamp - b.timestamp);
+    piscineJs.sort((a, b) => a.timestamp - b.timestamp);
+    module.sort((a, b) => a.timestamp - b.timestamp);
+    
+    return {
+        piscineGo,
+        piscineJs,
+        module,
+        totals: {
+            piscineGo: cumulativePiscineGo,
+            piscineJs: cumulativePiscineJs,
+            module: cumulativeModule,
+            overall: cumulativePiscineGo + cumulativePiscineJs + cumulativeModule
+        }
+    };
+}
+
 function formatSkillName(skillType) {
     if (!skillType) return '';
     
@@ -84,4 +195,4 @@ function formatDate(date) {
     return date.toLocaleDateString('en-US', options);
 }
 
-export { parseSkillTransactions };
+export { parseSkillTransactions, parseXpTransactions };
