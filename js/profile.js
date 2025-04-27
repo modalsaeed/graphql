@@ -25,7 +25,17 @@ async function renderProfilePage() {
             fetchUserSkillTransactions()
         ]);
         
+        console.log('Basic Info:', basicInfo);
+        console.log('Progresses:', progresses);
+        console.log('XP Transactions:', xpTransactions);
+        console.log('Skill Transactions:', skillTransactions);
         // Process data for display and charts
+        const processedSkills = parseSkillTransactions(skillTransactions);
+        console.log('Processed Skills:', processedSkills);
+        const processedXp = parseXpTransactions(xpTransactions);
+        console.log('Processed XP Transactions:', processedXp);
+        const processedProgress = parseUserProgress(progresses);
+        console.log('Processed Progresses:', processedProgress);
 
         
         // Render the profile page with the data
@@ -63,7 +73,7 @@ async function renderProfilePage() {
                         <h2>XP Overview</h2>
                         <div class="info-card">
                             <h3>Total XP Earned</h3>
-                            <div class="xp-value">1</div>
+                            <div class="xp-value">${processedXp.totals.module}</div>
                         </div>
                         <div id="xp-graph" class="chart-container">
                             <!-- XP chart will be rendered here -->
@@ -86,16 +96,9 @@ async function renderProfilePage() {
                     
                     <section class="profile-section">
                         <h2>Progress Overview</h2>
-                        <div class="tab-container">
-                            <div class="tabs">
-                                <button class="tab-btn active" data-tab="piscine-go">Piscine Go</button>
-                                <button class="tab-btn" data-tab="piscine-js">Piscine JS</button>
-                                <button class="tab-btn" data-tab="modules">Modules</button>
-                            </div>
                             <div id="progress-graph" class="chart-container">
                                 <!-- Progress chart will be rendered here -->
                             </div>
-                        </div>
                     </section>
                 </div>
             </div>
@@ -106,9 +109,10 @@ async function renderProfilePage() {
         
         // Render charts
         renderAuditRatioPieChart(basicInfo.user[0].totalUp, basicInfo.user[0].totalDown);
-        // renderXPChart('xp-graph', xpTransactions);
-        // renderProgressChart('progress-graph', progresses);
-        // renderResultsChart('auditRatio-graph', basicInfo);
+        renderSkillsBarChart(processedSkills.latest,processedSkills.history)
+        renderXpLineChart(processedXp)
+        renderProgressTable(processedProgress)
+
         
     } catch (error) {
         console.error('Error loading profile data:', error);
@@ -129,3 +133,6 @@ async function renderProfilePage() {
         document.getElementById('btn-logout').addEventListener('click', logout);
     }
 }
+
+
+
