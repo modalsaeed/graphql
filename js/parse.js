@@ -243,3 +243,6 @@ function formatDate(date) {
     return date.toLocaleDateString('en-US', options);
 }
 
+window.parseSkillTransactions = parseSkillTransactions;
+window.parseXpTransactions = parseXpTransactions;
+window.parseUserProgress = parseUserProgress;
