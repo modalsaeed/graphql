@@ -152,5 +152,133 @@ function renderAuditRatioPieChart(up, down) {
         legendG.appendChild(legendItem);
     });
 }
+function renderSkillsBarChart(skillsData) {
+    const container = document.getElementById('skills-graph');
+    const margin = { top: 20, right: 30, bottom: 40, left: 150 };
+    const width = container.clientWidth - margin.left - margin.right;
+    const height = Math.max(300, skillsData.length * 35) - margin.top - margin.bottom;
+    
+    // Clear previous content
+    container.innerHTML = '';
+    
+    // Create SVG element
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', width + margin.left + margin.right);
+    svg.setAttribute('height', height + margin.top + margin.bottom);
+    container.appendChild(svg);
+    
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('transform', `translate(${margin.left},${margin.top})`);
+    svg.appendChild(g);
+    
+    // Sort skills by value in descending order
+    const sortedSkills = [...skillsData].sort((a, b) => b.value - a.value);
+    
+    // Find max value for scaling
+    const maxValue = Math.max(...sortedSkills.map(skill => skill.value));
+    
+    // Create scales
+    const xScale = value => (value / maxValue) * width;
+    const yScale = index => index * (height / sortedSkills.length);
+    
+    // Create color scale
+    const getBarColor = index => {
+        const hue = (index * 220 / sortedSkills.length) % 360;
+        return `hsl(${hue}, 70%, 60%)`;
+    };
+    
+    // Add bars
+    sortedSkills.forEach((skill, i) => {
+        const barGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.appendChild(barGroup);
+        
+        // Bar background (lighter version of the bar color)
+        const bgBar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgBar.setAttribute('x', 0);
+        bgBar.setAttribute('y', yScale(i) + 5);
+        bgBar.setAttribute('width', width);
+        bgBar.setAttribute('height', height / sortedSkills.length - 10);
+        bgBar.setAttribute('fill', '#f0f0f0');
+        bgBar.setAttribute('rx', 3);
+        barGroup.appendChild(bgBar);
+        
+        // Main bar
+        const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bar.setAttribute('x', 0);
+        bar.setAttribute('y', yScale(i) + 5);
+        bar.setAttribute('width', xScale(skill.value));
+        bar.setAttribute('height', height / sortedSkills.length - 10);
+        bar.setAttribute('fill', getBarColor(i));
+        bar.setAttribute('rx', 3);
+        bar.setAttribute('data-skill-id', skill.id);
+        bar.setAttribute('class', 'skill-bar');
+        barGroup.appendChild(bar);
+        
+        // Skill name
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', -10);
+        text.setAttribute('y', yScale(i) + (height / sortedSkills.length / 2) + 5);
+        text.setAttribute('text-anchor', 'end');
+        text.setAttribute('alignment-baseline', 'middle');
+        text.setAttribute('fill', '#333');
+        text.setAttribute('font-size', '14px');
+        text.textContent = skill.name;
+        barGroup.appendChild(text);
+        
+        // Value label
+        const valueText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        valueText.setAttribute('x', xScale(skill.value) + 5);
+        valueText.setAttribute('y', yScale(i) + (height / sortedSkills.length / 2) + 5);
+        valueText.setAttribute('alignment-baseline', 'middle');
+        valueText.setAttribute('fill', '#333');
+        valueText.setAttribute('font-size', '14px');
+        valueText.textContent = skill.value;
+        barGroup.appendChild(valueText);
+        
+        // Make the entire bar group clickable
+        barGroup.style.cursor = 'pointer';
+        barGroup.setAttribute('data-skill-id', skill.id);
+        barGroup.setAttribute('data-skill-name', skill.name);
+        barGroup.addEventListener('click', function() {
+            handleSkillClick(skill);
+        });
+    });
+    
+    // Add responsive behavior
+    window.addEventListener('resize', () => {
+        if (container.clientWidth !== width + margin.left + margin.right) {
+            renderSkillsBarChart(skillsData);
+        }
+    });
+}
+
+function handleSkillClick(skill) {
+    console.log(`Skill clicked: ${skill.name} (${skill.id})`);
+    
+    // Show the detail container that was previously hidden
+    const detailContainer = document.getElementById('skill-detail-graph');
+    detailContainer.style.display = 'block';
+    
+    // Highlight the selected skill bar
+    document.querySelectorAll('.skill-bar').forEach(bar => {
+        if (bar.getAttribute('data-skill-id') === skill.id) {
+            bar.setAttribute('stroke', '#000');
+            bar.setAttribute('stroke-width', '2');
+        } else {
+            bar.setAttribute('stroke', 'none');
+            bar.setAttribute('stroke-width', '0');
+        }
+    });
+    
+    // Later you will implement the detail chart here
+    detailContainer.innerHTML = `<h3>Skill Details: ${skill.name}</h3>
+                                <p>Value: ${skill.value}</p>
+                                <p>ID: ${skill.id}</p>
+                                <p>Detailed chart will be implemented here</p>`;
+    
+    // Scroll to the detail section
+    detailContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
 window.renderAuditRatioPieChart = renderAuditRatioPieChart;
+window.renderSkillsBarChart = renderSkillsBarChart;
