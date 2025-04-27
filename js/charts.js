@@ -27,10 +27,10 @@ function renderAuditRatioPieChart(up, down) {
     const upFormatted = (up / divisor).toFixed(1);
     const downFormatted = (down / divisor).toFixed(1);
 
-    // Setup SVG dimensions
-    const width = container.clientWidth || 300;
-    const height = 250;
-    const radius = Math.min(width, height) / 2.5;
+    // Setup SVG dimensions - UPDATED for new design
+    const width = container.clientWidth || 350;
+    const height = 300;
+    const radius = Math.min(width, height) / 2.8; // Slightly smaller radius for better fit
     
     // Clear any existing chart
     container.innerHTML = '';
@@ -39,15 +39,16 @@ function renderAuditRatioPieChart(up, down) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", width);
     svg.setAttribute("height", height);
+    svg.setAttribute("class", "chart-svg");
     container.appendChild(svg);
     
     // Create group element for the chart
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("transform", `translate(${width/2}, ${height/2})`);
+    g.setAttribute("transform", `translate(${width/2}, ${height/2 - 15})`); // Adjust centering
     svg.appendChild(g);
     
-    // Define color scheme
-    const colors = ["#4CAF50", "#2196F3"];
+    // Define color scheme - updated to match design
+    const colors = ["#3b82f6", "#10b981"]; // Primary blue, Secondary green
     
     // Create data for the pie chart
     const data = [
@@ -789,10 +790,19 @@ function renderXpLineChart(data) {
     // Function to format XP values
     function formatXp(xp) {
         if (xp >= 1000000) {
-            return `${(xp / 1000000).toFixed(1)}M`;
+            // Show 3 significant digits for values ≥ 1MB
+            const value = xp / 1000000;
+            return value < 10 ? `${value.toFixed(2)}MB` : 
+                   value < 100 ? `${value.toFixed(1)}MB` : 
+                   `${Math.round(value)}MB`;
         } else if (xp >= 1000) {
-            return `${(xp / 1000).toFixed(1)}K`;
+            // Show 3 significant digits for values ≥ 1KB
+            const value = xp / 1000;
+            return value < 10 ? `${value.toFixed(2)}KB` : 
+                   value < 100 ? `${value.toFixed(1)}KB` : 
+                   `${Math.round(value)}KB`;
         } else {
+            // For small values, show the exact number
             return xp.toString();
         }
     }
