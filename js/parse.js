@@ -77,7 +77,7 @@ function parseXpTransactions(xpTransactions) {
     const piscineGoByDate = {};
     const piscineJsByDate = {};
     const moduleByDate = {};
-    
+
     // Process each transaction
     transactions.forEach(transaction => {
         const path = transaction.path;
@@ -86,7 +86,34 @@ function parseXpTransactions(xpTransactions) {
         const amount = transaction.amount;
         
         // Categorize transactions
-        if (path.includes('bh-piscine')) {
+        // Special case for specific path that needs to go to module
+        if (path === '/bahrain/bh-module/piscine-js') {
+            // Module - special case
+            cumulativeModule += amount;
+            
+            if (!moduleByDate[formattedDate]) {
+                moduleByDate[formattedDate] = { 
+                    date: formattedDate, 
+                    timestamp: date.getTime(),
+                    amount: 0,
+                    cumulative: 0,
+                    transactions: [] // Track individual transactions
+                };
+            }
+            
+            // Add individual transaction
+            moduleByDate[formattedDate].transactions.push({
+                path: path,
+                amount: amount,
+                timestamp: date.getTime()
+            });
+            
+            moduleByDate[formattedDate].amount += amount;
+            moduleByDate[formattedDate].cumulative = cumulativeModule;
+        }
+        // Regular categorization
+        else if (path.includes('bh-piscine')) {
+
             // Piscine GO
             cumulativePiscineGo += amount;
             
@@ -95,14 +122,23 @@ function parseXpTransactions(xpTransactions) {
                     date: formattedDate, 
                     timestamp: date.getTime(),
                     amount: 0,
-                    cumulative: 0
+                    cumulative: 0,
+                    transactions: [] // Track individual transactions
                 };
             }
+            
+            // Add individual transaction
+            piscineGoByDate[formattedDate].transactions.push({
+                path: path,
+                amount: amount,
+                timestamp: date.getTime()
+            });
             
             piscineGoByDate[formattedDate].amount += amount;
             piscineGoByDate[formattedDate].cumulative = cumulativePiscineGo;
             
         } else if (path.includes('piscine-js')) {
+
             // Piscine JS
             cumulativePiscineJs += amount;
             
@@ -111,14 +147,23 @@ function parseXpTransactions(xpTransactions) {
                     date: formattedDate, 
                     timestamp: date.getTime(),
                     amount: 0,
-                    cumulative: 0
+                    cumulative: 0,
+                    transactions: [] // Track individual transactions
                 };
             }
+            
+            // Add individual transaction
+            piscineJsByDate[formattedDate].transactions.push({
+                path: path,
+                amount: amount,
+                timestamp: date.getTime()
+            });
             
             piscineJsByDate[formattedDate].amount += amount;
             piscineJsByDate[formattedDate].cumulative = cumulativePiscineJs;
             
         } else if (path.includes('bh-module')) {
+
             // Module
             cumulativeModule += amount;
             
@@ -127,15 +172,23 @@ function parseXpTransactions(xpTransactions) {
                     date: formattedDate, 
                     timestamp: date.getTime(),
                     amount: 0,
-                    cumulative: 0
+                    cumulative: 0,
+                    transactions: [] // Track individual transactions
                 };
             }
+            
+            // Add individual transaction
+            moduleByDate[formattedDate].transactions.push({
+                path: path,
+                amount: amount,
+                timestamp: date.getTime()
+            });
             
             moduleByDate[formattedDate].amount += amount;
             moduleByDate[formattedDate].cumulative = cumulativeModule;
         }
     });
-    
+
     // Convert date maps to arrays and sort by date
     for (const dateKey in piscineGoByDate) {
         piscineGo.push(piscineGoByDate[dateKey]);
@@ -167,7 +220,7 @@ function parseXpTransactions(xpTransactions) {
 }
 
 function parseUserProgress(progressData) {
-    if (!progressData || !progressData.progress || !progressData.progress.length) {
+    if (!progressData || !progressData[0] || !progressData[0].progresses) {
         return {
             piscineGo: [],
             piscineJs: [],
@@ -175,7 +228,7 @@ function parseUserProgress(progressData) {
         };
     }
 
-    const progress = progressData.progress;
+    const progresses = progressData[0].progresses;
     
     // Initialize category arrays
     const piscineGoItems = [];
@@ -183,7 +236,7 @@ function parseUserProgress(progressData) {
     const moduleItems = [];
     
     // Sort progress into categories
-    progress.forEach(item => {
+    progresses.forEach(item => {
         const path = item.path;
         const date = new Date(item.createdAt || item.updatedAt);
         
