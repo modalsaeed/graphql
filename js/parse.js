@@ -162,8 +162,56 @@ function parseXpTransactions(xpTransactions) {
             piscineGo: cumulativePiscineGo,
             piscineJs: cumulativePiscineJs,
             module: cumulativeModule,
-            overall: cumulativePiscineGo + cumulativePiscineJs + cumulativeModule
         }
+    };
+}
+
+function parseUserProgress(progressData) {
+    if (!progressData || !progressData.progress || !progressData.progress.length) {
+        return {
+            piscineGo: [],
+            piscineJs: [],
+            module: []
+        };
+    }
+
+    const progress = progressData.progress;
+    
+    // Initialize category arrays
+    const piscineGoItems = [];
+    const piscineJsItems = [];
+    const moduleItems = [];
+    
+    // Sort progress into categories
+    progress.forEach(item => {
+        const path = item.path;
+        const date = new Date(item.createdAt || item.updatedAt);
+        
+        const progressItem = {
+            ...item,
+            date: date,
+            formattedDate: formatDate(date),
+            isCompleted: item.grade > 0
+        };
+        
+        if (path.includes('bh-piscine')) {
+            piscineGoItems.push(progressItem);
+        } else if (path.includes('piscine-js')) {
+            piscineJsItems.push(progressItem);
+        } else if (path.includes('bh-module')) {
+            moduleItems.push(progressItem);
+        }
+    });
+    
+    // Sort each category by latest date
+    piscineGoItems.sort((a, b) => b.date - a.date);
+    piscineJsItems.sort((a, b) => b.date - a.date);
+    moduleItems.sort((a, b) => b.date - a.date);
+    
+    return {
+        piscineGo: piscineGoItems,
+        piscineJs: piscineJsItems,
+        module: moduleItems
     };
 }
 
@@ -195,4 +243,4 @@ function formatDate(date) {
     return date.toLocaleDateString('en-US', options);
 }
 
-export { parseSkillTransactions, parseXpTransactions };
+export { parseSkillTransactions, parseXpTransactions, parseUserProgress };
