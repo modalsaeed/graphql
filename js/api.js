@@ -96,8 +96,7 @@ async function fetchUserProgresses() {
     }
     `;
     
-    return executeQuery(query)
-      .then(data => data.user.progresses);
+    return executeQuery(query).then(data => data.user)
 }
 
 async function fetchUserXpTransactions() {
@@ -116,8 +115,7 @@ async function fetchUserXpTransactions() {
     }
     `;
     
-    return executeQuery(query)
-      .then(data => data.user.transactions);
+    return executeQuery(query).then(data => data.user)
 }
 
 async function fetchUserSkillTransactions() {
@@ -136,6 +134,5 @@ async function fetchUserSkillTransactions() {
     }
     `;
     
-    return executeQuery(query)
-      .then(data => data.user.skills);
+    return executeQuery(query).then(data => data.user)
 }
