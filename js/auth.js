@@ -80,13 +80,20 @@ async function authUser(identifier, password) {
         console.log('Auth response headers:', Object.fromEntries([...response.headers.entries()]));
         
         if (!response.ok) {
+            // Show a user-friendly error message for all authentication failures
+            // This handles both 401 Unauthorized and 403 Forbidden errors with the same message
+            if (response.status === 401 || response.status === 403) {
+                throw new Error('Invalid username or password');
+            }
+            
+            // For other non-auth related errors, try to extract a useful message
             const errorText = await response.text();
             console.error('Auth error response:', errorText);
             try {
                 const errorJson = JSON.parse(errorText);
                 throw new Error(errorJson.message || `Authentication failed (${response.status})`);
             } catch (e) {
-                throw new Error(`Authentication failed (${response.status}): ${errorText.slice(0, 100)}`);
+                throw new Error(`Authentication failed (${response.status})`);
             }
         }
         
