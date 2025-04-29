@@ -1,3 +1,11 @@
+function debounce(func, wait = 250) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
 function renderAuditRatioPieChart(up, down) {
     const container = document.getElementById('auditRatio-graph');
     if (!container) {
@@ -35,10 +43,12 @@ function renderAuditRatioPieChart(up, down) {
     // Clear any existing chart
     container.innerHTML = '';
     
-    // Create SVG element
+    // Create SVG element with viewBox for better responsiveness
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", width);
     svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
     svg.setAttribute("class", "chart-svg");
     container.appendChild(svg);
     
@@ -126,33 +136,52 @@ function renderAuditRatioPieChart(up, down) {
         currentAngle = endAngle;
     });
     
-    // Create legend
+    // Create legend - with responsive positioning
     const legendG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    // Position legend at the bottom of the chart, centered
     legendG.setAttribute("transform", `translate(${width/2}, ${height - 30})`);
     svg.appendChild(legendG);
-    
+
+    // Check if screen is too small for side-by-side legend
+    const isMobile = window.innerWidth < 480;
+    const legendSpacing = isMobile ? 40 : 150; // Stack vertically on mobile
+
     data.forEach((d, i) => {
         const legendItem = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        legendItem.setAttribute("transform", `translate(${(i - data.length/2) * 150 + 75}, 0)`);
+        // For mobile: stack vertically, otherwise place side by side
+        const xOffset = isMobile ? 0 : (i - data.length/2) * legendSpacing + 75;
+        const yOffset = isMobile ? i * 25 : 0;
+        legendItem.setAttribute("transform", `translate(${xOffset}, ${yOffset})`);
         
         // Legend color box
         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         rect.setAttribute("width", "15");
         rect.setAttribute("height", "15");
         rect.setAttribute("fill", colors[i]);
-        rect.setAttribute("x", "-70");
+        rect.setAttribute("x", isMobile ? "-40" : "-70");
         legendItem.appendChild(rect);
         
         // Legend text
         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", "-50");
+        text.setAttribute("x", isMobile ? "-20" : "-50");
         text.setAttribute("y", "12");
+        text.setAttribute("font-size", isMobile ? "12px" : "14px");
         text.textContent = d.label;
         legendItem.appendChild(text);
         
         legendG.appendChild(legendItem);
     });
+
+    const debouncedResize = debounce(() => {
+        if (container.clientWidth !== width + margin.left + margin.right) {
+            renderAuditRatioPieChart(up, down);
+        }
+    }, 250);
+    
+    window.addEventListener('resize', debouncedResize);
+
 }
+
 function renderSkillsBarChart(skillsData, skillHistoryData) {
     const container = document.getElementById('skills-graph');
     const margin = { top: 20, right: 30, bottom: 40, left: 150 };
@@ -249,11 +278,13 @@ function renderSkillsBarChart(skillsData, skillHistoryData) {
     });
     
     // Add responsive behavior
-    window.addEventListener('resize', () => {
+    const debouncedResize = debounce(() => {
         if (container.clientWidth !== width + margin.left + margin.right) {
             renderSkillsBarChart(skillsData, skillHistoryData);
         }
-    });
+    }, 250);
+    
+    window.addEventListener('resize', debouncedResize);
 }
 
 function renderSkillHistoryChart(skillId, historyData) {
@@ -679,11 +710,13 @@ function renderSkillHistoryChart(skillId, historyData) {
     }
     
     // Add responsive behavior
-    window.addEventListener('resize', () => {
+    const debouncedResize = debounce(() => {
         if (container.clientWidth !== width + margin.left + margin.right) {
             renderSkillHistoryChart(skillId, historyData);
         }
-    });
+    }, 250);
+    
+    window.addEventListener('resize', debouncedResize);
 }
 
 function handleSkillClick(skill, skillHistoryData) {
@@ -1053,11 +1086,13 @@ function renderXpLineChart(data) {
     }
     
     // Handle window resize
-    window.addEventListener('resize', () => {
+    const debouncedResize = debounce(() => {
         if (container.clientWidth > 0) {
             drawChart(data[activeTab], container.clientWidth, 300);
         }
-    });
+    }, 250);
+    
+    window.addEventListener('resize', debouncedResize);
 }
 
 function renderProgressTable(progressData) {

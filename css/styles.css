@@ -610,6 +610,16 @@ input[type="email"] {
     padding: 0.5rem 1rem;
     font-size: 0.9rem;
   }
+
+  /* Improve chart display on small screens */
+  #auditRatio-graph .chart-svg text {
+    font-size: 12px;
+  }
+  
+  #auditRatio-graph text[dominant-baseline="middle"] {
+    font-size: 14px;
+    font-weight: bold;
+  }
 }
 
 /* Fix table overflow issues on mobile */
