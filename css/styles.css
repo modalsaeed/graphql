@@ -314,7 +314,9 @@ input[type="email"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 70vh;
+  min-height: 70vh;
+  padding: 2rem 1rem;
+  text-align: center;
 }
 
 .loading-spinner {
@@ -324,7 +326,12 @@ input[type="email"] {
   border-radius: 50%;
   border-top-color: var(--primary-color);
   animation: spin 1s ease infinite;
-  margin-top: 1.5rem;
+  margin: 1.5rem auto;
+}
+
+.loading-message {
+  max-width: 90%;
+  margin: 0 auto;
 }
 
 @keyframes spin {
@@ -513,6 +520,10 @@ input[type="email"] {
   .skills-section, .progress-section {
     grid-column: auto;
   }
+  
+  .chart-container {
+    min-height: 280px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -534,14 +545,82 @@ input[type="email"] {
     padding: 0.5rem 0.75rem;
     font-size: 0.875rem;
   }
+  
+  .progress-tabs, .xp-tabs {
+    overflow-x: auto;
+    padding-bottom: 5px;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .chart-container {
+    min-height: 250px;
+    padding: 0.75rem;
+  }
+  
+  /* Ensure SVG charts fit on mobile */
+  .chart-svg {
+    max-width: 100%;
+  }
+  
+  /* Make data tables responsive */
+  .table-scroll-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @media (max-width: 480px) {
   .profile-container {
     padding: 1rem;
+    margin: 0.5rem;
+    width: calc(100% - 1rem);
+  }
+  
+  .profile-section {
+    padding: 1.25rem 1rem;
   }
   
   .chart-container {
-    height: 250px;
+    min-height: 220px;
+    margin-top: 1rem;
   }
+  
+  .info-card {
+    padding: 1rem;
+  }
+  
+  .ratio-value, .id-value, .xp-value {
+    font-size: 1.5rem;
+  }
+  
+  .profile-section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  
+  /* Adjust tab sizing for very small screens */
+  .tab-button, .xp-tab {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+    min-width: 80px;
+  }
+  
+  /* Ensure buttons don't get too small */
+  .btn-logout, .btn-retry {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Fix table overflow issues on mobile */
+.progress-data-table {
+  width: 100%;
+  min-width: 600px; /* Ensure minimum width for scrollable tables */
+}
+
+.table-scroll-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
 }

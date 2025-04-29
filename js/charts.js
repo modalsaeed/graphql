@@ -162,10 +162,13 @@ function renderSkillsBarChart(skillsData, skillHistoryData) {
     // Clear previous content
     container.innerHTML = '';
     
-    // Create SVG element
+    // Create SVG element with viewBox for better responsiveness
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', width + margin.left + margin.right);
     svg.setAttribute('height', height + margin.top + margin.bottom);
+    svg.setAttribute('viewBox', `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.setAttribute('class', 'chart-svg');
     container.appendChild(svg);
     
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
