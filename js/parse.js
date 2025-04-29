@@ -162,7 +162,7 @@ function parseXpTransactions(xpTransactions) {
             piscineJsByDate[formattedDate].amount += amount;
             piscineJsByDate[formattedDate].cumulative = cumulativePiscineJs;
             
-        } else if (path.includes('bh-module')) {
+        } else if (path.includes('bh-module') && !path.includes('piscine')) {
 
             // Module
             cumulativeModule += amount;
@@ -251,7 +251,7 @@ function parseUserProgress(progressData) {
             piscineGoItems.push(progressItem);
         } else if (path.includes('piscine-js')) {
             piscineJsItems.push(progressItem);
-        } else if (path.includes('bh-module')) {
+        } else if (path.includes('bh-module') && !path.includes('piscine')) {
             moduleItems.push(progressItem);
         }
     });
