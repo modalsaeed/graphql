@@ -1093,6 +1093,13 @@ function renderProgressTable(progressData) {
             return;
         }
         
+        // Add a wrapper div for scrolling
+        tableContainer.innerHTML = '<div class="table-scroll-wrapper"></div>';
+        const scrollWrapper = tableContainer.querySelector('.table-scroll-wrapper');
+        
+        // Process entries to merge duplicates
+        const mergedEntries = mergeEntriesByProject(entries);
+        
         // Create table HTML
         let tableHTML = `
             <table class="progress-data-table">
@@ -1102,6 +1109,7 @@ function renderProgressTable(progressData) {
                         <th>Date</th>
                         <th>Grade</th>
                         <th>Status</th>
+                        <th>Attempts</th>
                         <th>Captain</th>
                         <th>Auditors</th>
                     </tr>
@@ -1110,7 +1118,7 @@ function renderProgressTable(progressData) {
         `;
         
         // Add rows for each entry
-        entries.forEach(entry => {
+        mergedEntries.forEach(entry => {
             // Extract project name from path
             const pathParts = entry.path.split('/');
             const projectName = pathParts[pathParts.length - 1];
@@ -1137,12 +1145,19 @@ function renderProgressTable(progressData) {
                 auditors = `<span class="auditor-count" title="${auditorList}">${auditorCount} auditors</span>`;
             }
             
+            // Show attempts count
+            const attempts = entry.attempts || 1;
+            const attemptsDisplay = attempts > 1 ? 
+                `<span class="attempts-count" title="${entry.attemptDates || 'Multiple submissions'}">${attempts}</span>` : 
+                '1';
+            
             tableHTML += `
                 <tr class="${entry.isCompleted ? 'completed' : 'incomplete'}">
                     <td>${projectName}</td>
                     <td>${entry.formattedDate}</td>
                     <td>${formattedGrade}</td>
                     <td>${status}</td>
+                    <td>${attemptsDisplay}</td>
                     <td>${captain}</td>
                     <td>${auditors}</td>
                 </tr>
@@ -1154,13 +1169,72 @@ function renderProgressTable(progressData) {
             </table>
         `;
         
-        tableContainer.innerHTML = tableHTML;
+        scrollWrapper.innerHTML = tableHTML;
+    }
+    
+    // Function to merge entries for the same project
+    function mergeEntriesByProject(entries) {
+        // Group entries by project path
+        const projectGroups = {};
+        
+        entries.forEach(entry => {
+            if (!projectGroups[entry.path]) {
+                projectGroups[entry.path] = [];
+            }
+            projectGroups[entry.path].push(entry);
+        });
+        
+        // Process each group to merge if needed
+        const mergedEntries = [];
+        
+        Object.keys(projectGroups).forEach(path => {
+            const projectEntries = projectGroups[path];
+            
+            // Sort by date (newest first)
+            projectEntries.sort((a, b) => b.date - a.date);
+            
+            // Get the latest entry (which will be our base)
+            const latestEntry = projectEntries[0];
+            
+            // Check if this project has multiple entries and at least one is successful
+            const hasSuccessful = projectEntries.some(entry => entry.isCompleted);
+            
+            if (projectEntries.length > 1) {
+                // If there's a successful entry, use it as the base
+                const successfulEntry = hasSuccessful ? 
+                    projectEntries.find(entry => entry.isCompleted) : 
+                    latestEntry;
+                
+                // Count attempts
+                successfulEntry.attempts = projectEntries.length;
+                
+                // Add additional info to the tooltip
+                const attemptDates = projectEntries
+                    .map(e => `${e.formattedDate}: ${e.grade !== null ? e.grade.toFixed(2) : 'No Grade'}`)
+                    .join('\n');
+                
+                successfulEntry.attemptDates = attemptDates;
+                
+                mergedEntries.push(successfulEntry);
+            } else {
+                // Just a single entry, add it as is
+                mergedEntries.push(latestEntry);
+            }
+        });
+        
+        // Sort final result by date (newest first)
+        return mergedEntries.sort((a, b) => b.date - a.date);
     }
     
     // Generate tables for each category
     generateTable(progressData.module, 'module-table');
     generateTable(progressData.piscineGo, 'piscineGo-table');
     generateTable(progressData.piscineJs, 'piscineJs-table');
+    
+    // Initially hide non-active tables
+    document.querySelectorAll('.progress-table:not(.active)').forEach(table => {
+        table.style.display = 'none';
+    });
     
     // Add tab switching functionality
     const tabButtons = document.querySelectorAll('.tab-button');
@@ -1170,106 +1244,76 @@ function renderProgressTable(progressData) {
         button.addEventListener('click', () => {
             // Remove active class from all buttons and tables
             tabButtons.forEach(btn => btn.classList.remove('active'));
-            tables.forEach(table => table.classList.remove('active'));
+            tables.forEach(table => {
+                table.classList.remove('active');
+                table.style.display = 'none';
+            });
             
             // Add active class to current button and corresponding table
             button.classList.add('active');
             const tabCategory = button.getAttribute('data-tab');
-            document.getElementById(`${tabCategory}-table`).classList.add('active');
+            const activeTable = document.getElementById(`${tabCategory}-table`);
+            activeTable.classList.add('active');
+            activeTable.style.display = 'block';
         });
     });
     
-    // Add some CSS for the tables
+    // Add styles for the tables
     const style = document.createElement('style');
     style.textContent = `
-        .progress-tabs {
-            display: flex;
-            border-bottom: 1px solid #ddd;
-            margin-bottom: 20px;
-        }
-        
-        .tab-button {
-            padding: 10px 20px;
-            background: none;
-            border: none;
-            border-bottom: 3px solid transparent;
-            cursor: pointer;
-            font-size: 16px;
-            transition: all 0.3s;
-        }
-        
-        .tab-button:hover {
-            background-color: rgba(0,0,0,0.05);
-        }
-        
-        .tab-button.active {
-            border-bottom: 3px solid #4a90e2;
-            font-weight: bold;
-        }
-        
-        .progress-tables-container {
+        .table-scroll-wrapper {
+            max-height: 400px;
+            overflow-y: auto;
             position: relative;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
         }
         
-        .progress-table {
-            display: none;
-            width: 100%;
-            overflow-x: auto;
-        }
-        
-        .progress-table.active {
-            display: block;
-        }
-        
-        .progress-data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .progress-data-table th, 
-        .progress-data-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .progress-data-table th {
+        .progress-data-table thead th {
+            position: sticky;
+            top: 0;
             background-color: #f8f9fa;
+            z-index: 10;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .attempts-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 22px;
+            background-color: #f0f0f0;
+            color: #444;
+            border-radius: 11px;
+            font-size: 0.85rem;
             font-weight: bold;
-        }
-        
-        .progress-data-table tr:hover {
-            background-color: rgba(0,0,0,0.02);
-        }
-        
-        .status-completed {
-            color: #28a745;
-            font-weight: bold;
-        }
-        
-        .status-incomplete {
-            color: #dc3545;
-        }
-        
-        .auditor-count {
-            color: #6c757d;
+            padding: 0 6px;
             cursor: help;
-            text-decoration: underline dotted;
         }
         
-        tr.completed {
-            background-color: rgba(40, 167, 69, 0.05);
+        tr.completed .attempts-count {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: #10b981;
         }
         
-        tr.incomplete {
-            background-color: rgba(220, 53, 69, 0.05);
+        /* Make sure the tables take full width but stay inside their container */
+        .progress-table {
+            width: 100%;
+            padding-bottom: 8px;
         }
         
-        .no-data {
-            padding: 20px;
-            text-align: center;
-            color: #6c757d;
-            font-style: italic;
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .table-scroll-wrapper {
+                max-height: 350px;
+                overflow-x: auto;
+            }
+            
+            .progress-data-table {
+                min-width: 650px; /* Ensure it's scrollable on mobile */
+            }
         }
     `;
     document.head.appendChild(style);
