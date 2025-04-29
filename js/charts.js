@@ -43,16 +43,16 @@ function renderAuditRatioPieChart(up, down) {
     // Clear any existing chart
     container.innerHTML = '';
     
-    // Create SVG element with viewBox for better responsiveness
+    // Create SVG element with proper viewBox for better responsiveness
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("width", width);
+    svg.setAttribute("width", "100%"); // Use percentage instead of fixed width
     svg.setAttribute("height", height);
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
     svg.setAttribute("class", "chart-svg");
     container.appendChild(svg);
     
-    // Create group element for the chart
+    // Create group element for the chart - better centering
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
     g.setAttribute("transform", `translate(${width/2}, ${height/2 - 15})`); // Adjust centering
     svg.appendChild(g);
@@ -60,10 +60,18 @@ function renderAuditRatioPieChart(up, down) {
     // Define color scheme - updated to match design
     const colors = ["#3b82f6", "#10b981"]; // Primary blue, Secondary green
     
-    // Create data for the pie chart
+    // Create data for the pie chart with shorter mobile labels
     const data = [
-        { label: `Given (${upFormatted} ${unit})`, value: up },
-        { label: `Received (${downFormatted} ${unit})`, value: down }
+        { 
+            label: `Given (${upFormatted} ${unit})`, 
+            shortLabel: `Given: ${upFormatted}`, 
+            value: up 
+        },
+        { 
+            label: `Received (${downFormatted} ${unit})`, 
+            shortLabel: `Received: ${downFormatted}`, 
+            value: down 
+        }
     ];
     
     // Calculate the total
@@ -138,12 +146,12 @@ function renderAuditRatioPieChart(up, down) {
     
     // Create legend - with responsive positioning
     const legendG = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    // Position legend at the bottom of the chart, centered
-    legendG.setAttribute("transform", `translate(${width/2}, ${height - 30})`);
+    // For mobile view, position legend higher to avoid overflow
+    const isMobile = window.innerWidth < 480;
+    const legendY = isMobile ? height - 60 : height - 30;
+    legendG.setAttribute("transform", `translate(${width/2}, ${legendY})`);
     svg.appendChild(legendG);
 
-    // Check if screen is too small for side-by-side legend
-    const isMobile = window.innerWidth < 480;
     const legendSpacing = isMobile ? 40 : 150; // Stack vertically on mobile
 
     data.forEach((d, i) => {
@@ -166,14 +174,14 @@ function renderAuditRatioPieChart(up, down) {
         text.setAttribute("x", isMobile ? "-20" : "-50");
         text.setAttribute("y", "12");
         text.setAttribute("font-size", isMobile ? "12px" : "14px");
-        text.textContent = d.label;
+        text.textContent = isMobile ? d.shortLabel : d.label;
         legendItem.appendChild(text);
         
         legendG.appendChild(legendItem);
     });
 
     const debouncedResize = debounce(() => {
-        if (container.clientWidth !== width + margin.left + margin.right) {
+        if (container.clientWidth !== width) {
             renderAuditRatioPieChart(up, down);
         }
     }, 250);
@@ -780,7 +788,19 @@ function renderXpLineChart(data) {
     categories.forEach(category => {
         const tab = document.createElement('div');
         tab.className = 'xp-tab';
-        tab.textContent = `${tabLabels[category]} (${formatXp(data.totals[category])})`;
+        
+        // Check if we're on mobile screen
+        const isMobile = window.innerWidth < 480;
+        
+        // Format tab text differently based on screen size
+        if (isMobile) {
+            // For mobile: shorter text with no value in the tab label
+            tab.textContent = tabLabels[category];
+        } else {
+            // For desktop: full text with value
+            tab.textContent = `${tabLabels[category]} (${formatXp(data.totals[category])})`;
+        }
+        
         tab.dataset.category = category;
         tab.style.cssText = 'padding: 8px 15px; margin: 0 5px; cursor: pointer; border-radius: 5px; transition: all 0.2s ease;';
         
@@ -1087,8 +1107,24 @@ function renderXpLineChart(data) {
     
     // Handle window resize
     const debouncedResize = debounce(() => {
+        // Update chart if container width changed
         if (container.clientWidth > 0) {
+            // Redraw chart
             drawChart(data[activeTab], container.clientWidth, 300);
+            
+            // Update tab labels based on new screen size
+            const isMobile = window.innerWidth < 480;
+            document.querySelectorAll('.xp-tab').forEach(tab => {
+                const category = tab.dataset.category;
+                
+                if (isMobile) {
+                    // Short format for mobile
+                    tab.textContent = tabLabels[category];
+                } else {
+                    // Full format for desktop
+                    tab.textContent = `${tabLabels[category]} (${formatXp(data.totals[category])})`;
+                }
+            });
         }
     }, 250);
     

@@ -620,6 +620,23 @@ input[type="email"] {
     font-size: 14px;
     font-weight: bold;
   }
+
+  /* Improved XP tabs styles for mobile */
+  .xp-tabs {
+    overflow-x: auto;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 15px;
+    padding-bottom: 5px; /* Prevent scrollbar from cutting off tabs */
+  }
+  
+  .xp-tab {
+    padding: 8px 10px;
+    min-width: auto;
+    white-space: nowrap;
+    margin: 0 3px;
+    font-size: 0.8rem;
+  }
 }
 
 /* Fix table overflow issues on mobile */
