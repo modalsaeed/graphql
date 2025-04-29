@@ -6,6 +6,29 @@ function debounce(func, wait = 250) {
     };
 }
 
+// Common utility functions to reduce redundancy
+function createSvgElement(tag) {
+    return document.createElementNS("http://www.w3.org/2000/svg", tag);
+}
+
+function setupSvg(container, width, height, preserveRatio = true) {
+    // Clear any existing chart
+    container.innerHTML = '';
+    
+    // Create SVG element with proper viewBox for better responsiveness
+    const svg = createSvgElement("svg");
+    svg.setAttribute("width", "100%"); 
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    if (preserveRatio) {
+        svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    }
+    svg.setAttribute("class", "chart-svg");
+    container.appendChild(svg);
+    
+    return svg;
+}
+
 function renderAuditRatioPieChart(up, down) {
     const container = document.getElementById('auditRatio-graph');
     if (!container) {
@@ -35,29 +58,19 @@ function renderAuditRatioPieChart(up, down) {
     const upFormatted = (up / divisor).toFixed(1);
     const downFormatted = (down / divisor).toFixed(1);
 
-    // Setup SVG dimensions - UPDATED for new design
+    // Setup SVG dimensions
     const width = container.clientWidth || 350;
     const height = 300;
-    const radius = Math.min(width, height) / 2.8; // Slightly smaller radius for better fit
+    const radius = Math.min(width, height) / 2.8;
     
-    // Clear any existing chart
-    container.innerHTML = '';
+    const svg = setupSvg(container, width, height);
     
-    // Create SVG element with proper viewBox for better responsiveness
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("width", "100%"); // Use percentage instead of fixed width
-    svg.setAttribute("height", height);
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-    svg.setAttribute("class", "chart-svg");
-    container.appendChild(svg);
-    
-    // Create group element for the chart - better centering
-    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("transform", `translate(${width/2}, ${height/2 - 15})`); // Adjust centering
+    // Create group element for the chart
+    const g = createSvgElement("g");
+    g.setAttribute("transform", `translate(${width/2}, ${height/2 - 15})`);
     svg.appendChild(g);
     
-    // Define color scheme - updated to match design
+    // Define color scheme
     const colors = ["#3b82f6", "#10b981"]; // Primary blue, Secondary green
     
     // Create data for the pie chart with shorter mobile labels
@@ -77,6 +90,14 @@ function renderAuditRatioPieChart(up, down) {
     // Calculate the total
     const total = data.reduce((sum, d) => sum + d.value, 0);
     
+    // Helper function to convert polar coordinates to Cartesian
+    function polarToCartesian(radius, angle) {
+        return {
+            x: radius * Math.cos(angle - Math.PI/2),
+            y: radius * Math.sin(angle - Math.PI/2)
+        };
+    }
+    
     // Function to calculate arc path
     function arcPath(startAngle, endAngle) {
         const start = polarToCartesian(radius, startAngle);
@@ -91,14 +112,6 @@ function renderAuditRatioPieChart(up, down) {
         ].join(" ");
     }
     
-    // Helper function to convert polar coordinates to Cartesian
-    function polarToCartesian(radius, angle) {
-        return {
-            x: radius * Math.cos(angle - Math.PI/2),
-            y: radius * Math.sin(angle - Math.PI/2)
-        };
-    }
-    
     // Draw pie slices
     let currentAngle = 0;
     data.forEach((d, i) => {
@@ -106,31 +119,26 @@ function renderAuditRatioPieChart(up, down) {
         const endAngle = currentAngle + angle;
         
         // Create slice
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const path = createSvgElement("path");
         path.setAttribute("d", arcPath(currentAngle, endAngle));
         path.setAttribute("fill", colors[i]);
         path.setAttribute("stroke", "#fff");
         path.setAttribute("stroke-width", "1");
         
         // Add hover effect
-        path.addEventListener("mouseover", () => {
-            path.setAttribute("opacity", "0.8");
-        });
-        path.addEventListener("mouseout", () => {
-            path.setAttribute("opacity", "1");
-        });
+        path.addEventListener("mouseover", () => path.setAttribute("opacity", "0.8"));
+        path.addEventListener("mouseout", () => path.setAttribute("opacity", "1"));
         
         g.appendChild(path);
         
         // Add label
-        const midAngle = currentAngle + angle / 2;
-        const labelRadius = radius * 0.7;
-        const labelPos = polarToCartesian(labelRadius, midAngle);
-        
         if (d.value > 0) {
+            const midAngle = currentAngle + angle / 2;
+            const labelRadius = radius * 0.7;
+            const labelPos = polarToCartesian(labelRadius, midAngle);
             const percent = ((d.value / total) * 100).toFixed(1);
             
-            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            const label = createSvgElement("text");
             label.setAttribute("x", labelPos.x);
             label.setAttribute("y", labelPos.y);
             label.setAttribute("text-anchor", "middle");
@@ -144,25 +152,23 @@ function renderAuditRatioPieChart(up, down) {
         currentAngle = endAngle;
     });
     
-    // Create legend - with responsive positioning
-    const legendG = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    // For mobile view, position legend higher to avoid overflow
+    // Create legend with responsive positioning
+    const legendG = createSvgElement("g");
     const isMobile = window.innerWidth < 480;
     const legendY = isMobile ? height - 60 : height - 30;
     legendG.setAttribute("transform", `translate(${width/2}, ${legendY})`);
     svg.appendChild(legendG);
 
-    const legendSpacing = isMobile ? 40 : 150; // Stack vertically on mobile
+    const legendSpacing = isMobile ? 40 : 150;
 
     data.forEach((d, i) => {
-        const legendItem = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        // For mobile: stack vertically, otherwise place side by side
+        const legendItem = createSvgElement("g");
         const xOffset = isMobile ? 0 : (i - data.length/2) * legendSpacing + 75;
         const yOffset = isMobile ? i * 25 : 0;
         legendItem.setAttribute("transform", `translate(${xOffset}, ${yOffset})`);
         
         // Legend color box
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        const rect = createSvgElement("rect");
         rect.setAttribute("width", "15");
         rect.setAttribute("height", "15");
         rect.setAttribute("fill", colors[i]);
@@ -170,7 +176,7 @@ function renderAuditRatioPieChart(up, down) {
         legendItem.appendChild(rect);
         
         // Legend text
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        const text = createSvgElement("text");
         text.setAttribute("x", isMobile ? "-20" : "-50");
         text.setAttribute("y", "12");
         text.setAttribute("font-size", isMobile ? "12px" : "14px");
@@ -180,6 +186,7 @@ function renderAuditRatioPieChart(up, down) {
         legendG.appendChild(legendItem);
     });
 
+    // Handle resize
     const debouncedResize = debounce(() => {
         if (container.clientWidth !== width) {
             renderAuditRatioPieChart(up, down);
@@ -187,11 +194,12 @@ function renderAuditRatioPieChart(up, down) {
     }, 250);
     
     window.addEventListener('resize', debouncedResize);
-
 }
 
 function renderSkillsBarChart(skillsData, skillHistoryData) {
     const container = document.getElementById('skills-graph');
+    if (!container) return;
+    
     const margin = { top: 20, right: 30, bottom: 40, left: 150 };
     const width = container.clientWidth - margin.left - margin.right;
     const height = Math.max(300, skillsData.length * 35) - margin.top - margin.bottom;
@@ -200,7 +208,7 @@ function renderSkillsBarChart(skillsData, skillHistoryData) {
     container.innerHTML = '';
     
     // Create SVG element with viewBox for better responsiveness
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const svg = createSvgElement('svg');
     svg.setAttribute('width', width + margin.left + margin.right);
     svg.setAttribute('height', height + margin.top + margin.bottom);
     svg.setAttribute('viewBox', `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`);
@@ -208,7 +216,7 @@ function renderSkillsBarChart(skillsData, skillHistoryData) {
     svg.setAttribute('class', 'chart-svg');
     container.appendChild(svg);
     
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const g = createSvgElement('g');
     g.setAttribute('transform', `translate(${margin.left},${margin.top})`);
     svg.appendChild(g);
     
@@ -230,35 +238,39 @@ function renderSkillsBarChart(skillsData, skillHistoryData) {
     
     // Add bars
     sortedSkills.forEach((skill, i) => {
-        const barGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const barGroup = createSvgElement('g');
         g.appendChild(barGroup);
         
-        // Bar background (lighter version of the bar color)
-        const bgBar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        const barHeight = height / sortedSkills.length - 10;
+        const barY = yScale(i) + 5;
+        const centerY = barY + (barHeight / 2);
+        
+        // Bar background
+        const bgBar = createSvgElement('rect');
         bgBar.setAttribute('x', 0);
-        bgBar.setAttribute('y', yScale(i) + 5);
+        bgBar.setAttribute('y', barY);
         bgBar.setAttribute('width', width);
-        bgBar.setAttribute('height', height / sortedSkills.length - 10);
+        bgBar.setAttribute('height', barHeight);
         bgBar.setAttribute('fill', '#f0f0f0');
-        bgBar.setAttribute('rx', 3);
+        bgBar.setAttribute('rx', '3');
         barGroup.appendChild(bgBar);
         
         // Main bar
-        const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        const bar = createSvgElement('rect');
         bar.setAttribute('x', 0);
-        bar.setAttribute('y', yScale(i) + 5);
+        bar.setAttribute('y', barY);
         bar.setAttribute('width', xScale(skill.value));
-        bar.setAttribute('height', height / sortedSkills.length - 10);
+        bar.setAttribute('height', barHeight);
         bar.setAttribute('fill', getBarColor(i));
-        bar.setAttribute('rx', 3);
+        bar.setAttribute('rx', '3');
         bar.setAttribute('data-skill-id', skill.id);
         bar.setAttribute('class', 'skill-bar');
         barGroup.appendChild(bar);
         
         // Skill name
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const text = createSvgElement('text');
         text.setAttribute('x', -10);
-        text.setAttribute('y', yScale(i) + (height / sortedSkills.length / 2) + 5);
+        text.setAttribute('y', centerY);
         text.setAttribute('text-anchor', 'end');
         text.setAttribute('alignment-baseline', 'middle');
         text.setAttribute('fill', '#333');
@@ -267,9 +279,9 @@ function renderSkillsBarChart(skillsData, skillHistoryData) {
         barGroup.appendChild(text);
         
         // Value label
-        const valueText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const valueText = createSvgElement('text');
         valueText.setAttribute('x', xScale(skill.value) + 5);
-        valueText.setAttribute('y', yScale(i) + (height / sortedSkills.length / 2) + 5);
+        valueText.setAttribute('y', centerY);
         valueText.setAttribute('alignment-baseline', 'middle');
         valueText.setAttribute('fill', '#333');
         valueText.setAttribute('font-size', '14px');
@@ -280,9 +292,7 @@ function renderSkillsBarChart(skillsData, skillHistoryData) {
         barGroup.style.cursor = 'pointer';
         barGroup.setAttribute('data-skill-id', skill.id);
         barGroup.setAttribute('data-skill-name', skill.name);
-        barGroup.addEventListener('click', function() {
-            handleSkillClick(skill, skillHistoryData);
-        });
+        barGroup.addEventListener('click', () => handleSkillClick(skill, skillHistoryData));
     });
     
     // Add responsive behavior
@@ -296,7 +306,7 @@ function renderSkillsBarChart(skillsData, skillHistoryData) {
 }
 
 function renderSkillHistoryChart(skillId, historyData) {
-    if (!historyData[skillId]) {
+    if (!historyData || !historyData[skillId]) {
         console.error(`No history data found for skill ID: ${skillId}`);
         return;
     }
@@ -316,40 +326,34 @@ function renderSkillHistoryChart(skillId, historyData) {
     container.appendChild(title);
     
     // Create SVG element
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const svg = createSvgElement('svg');
     svg.setAttribute('width', width + margin.left + margin.right);
     svg.setAttribute('height', height + margin.top + margin.bottom);
     container.appendChild(svg);
     
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const g = createSvgElement('g');
     g.setAttribute('transform', `translate(${margin.left},${margin.top})`);
     svg.appendChild(g);
     
     const data = historyData[skillId].data;
     
     // Parse dates and sort by date
-    const parsedData = data.map(d => {
-        return {
-            date: new Date(d.date),
-            value: d.value
-        };
-    }).sort((a, b) => {
-        // First sort by date
+    const parsedData = data.map(d => ({
+        date: new Date(d.date),
+        value: d.value
+    })).sort((a, b) => {
+        // First sort by date, then by value if dates are the same
         const dateComparison = a.date - b.date;
-        if (dateComparison !== 0) return dateComparison;
-        // If dates are the same, sort by value (ascending)
-        return a.value - b.value;
+        return dateComparison !== 0 ? dateComparison : a.value - b.value;
     });
     
-    // Check if all data points occur on the same day
+    // Check for edge cases
+    const singleDataPoint = parsedData.length === 1;
     const sameDay = parsedData.length > 1 && 
                     parsedData.every(d => 
                         d.date.getFullYear() === parsedData[0].date.getFullYear() &&
                         d.date.getMonth() === parsedData[0].date.getMonth() &&
                         d.date.getDate() === parsedData[0].date.getDate());
-    
-    // Handle case with only one data point
-    const singleDataPoint = parsedData.length === 1;
     
     // Get min and max dates
     let minDate, maxDate;
@@ -365,33 +369,28 @@ function renderSkillHistoryChart(skillId, historyData) {
         minDate = parsedData[0].date;
         maxDate = parsedData[parsedData.length - 1].date;
         
-        // Add some padding to the date range (5% on each side)
+        // Add padding to the date range (5% on each side)
         const dateRange = maxDate - minDate;
         minDate = new Date(minDate.getTime() - dateRange * 0.05);
         maxDate = new Date(maxDate.getTime() + dateRange * 0.05);
     }
     
-    // Get max value with a little padding
+    // Get max value with padding
     const maxValue = Math.max(...parsedData.map(d => d.value)) * 1.1;
     
     // Create scales
-    const xScale = (date) => {
-        return (date - minDate) / (maxDate - minDate) * width;
-    };
-    
-    const yScale = (value) => {
-        return height - (value / maxValue) * height;
-    };
+    const xScale = date => (date - minDate) / (maxDate - minDate) * width;
+    const yScale = value => height - (value / maxValue) * height;
     
     // Create axes
     // X-axis
-    const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const xAxis = createSvgElement('g');
     xAxis.setAttribute('class', 'x-axis');
     xAxis.setAttribute('transform', `translate(0,${height})`);
     g.appendChild(xAxis);
     
     // X-axis line
-    const xAxisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    const xAxisLine = createSvgElement('line');
     xAxisLine.setAttribute('x1', 0);
     xAxisLine.setAttribute('y1', 0);
     xAxisLine.setAttribute('x2', width);
@@ -415,19 +414,17 @@ function renderSkillHistoryChart(skillId, historyData) {
         // For multiple data points on different days
         const dateRange = maxDate - minDate;
         const tickInterval = dateRange / 5;
-        tickDates = [];
-        
-        for (let i = 0; i <= 5; i++) {
-            tickDates.push(new Date(minDate.getTime() + tickInterval * i));
-        }
+        tickDates = Array.from({length: 6}, (_, i) => 
+            new Date(minDate.getTime() + tickInterval * i)
+        );
     }
     
-    // Process to draw ticks
+    // Draw ticks
     tickDates.forEach(date => {
         const tickX = xScale(date);
         
         // Tick line
-        const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const tick = createSvgElement('line');
         tick.setAttribute('x1', tickX);
         tick.setAttribute('y1', 0);
         tick.setAttribute('x2', tickX);
@@ -436,7 +433,7 @@ function renderSkillHistoryChart(skillId, historyData) {
         xAxis.appendChild(tick);
         
         // Tick label
-        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const label = createSvgElement('text');
         label.setAttribute('x', tickX);
         label.setAttribute('y', 20);
         label.setAttribute('text-anchor', 'middle');
@@ -453,7 +450,7 @@ function renderSkillHistoryChart(skillId, historyData) {
     });
     
     // X-axis label
-    const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    const xLabel = createSvgElement('text');
     xLabel.setAttribute('x', width / 2);
     xLabel.setAttribute('y', 50);
     xLabel.setAttribute('text-anchor', 'middle');
@@ -462,12 +459,12 @@ function renderSkillHistoryChart(skillId, historyData) {
     xAxis.appendChild(xLabel);
     
     // Y-axis
-    const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const yAxis = createSvgElement('g');
     yAxis.setAttribute('class', 'y-axis');
     g.appendChild(yAxis);
     
     // Y-axis line
-    const yAxisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    const yAxisLine = createSvgElement('line');
     yAxisLine.setAttribute('x1', 0);
     yAxisLine.setAttribute('y1', 0);
     yAxisLine.setAttribute('x2', 0);
@@ -484,7 +481,7 @@ function renderSkillHistoryChart(skillId, historyData) {
         const tickY = yScale(value);
         
         // Tick line
-        const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const tick = createSvgElement('line');
         tick.setAttribute('x1', -5);
         tick.setAttribute('y1', tickY);
         tick.setAttribute('x2', 0);
@@ -493,7 +490,7 @@ function renderSkillHistoryChart(skillId, historyData) {
         yAxis.appendChild(tick);
         
         // Tick label
-        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const label = createSvgElement('text');
         label.setAttribute('x', -10);
         label.setAttribute('y', tickY);
         label.setAttribute('text-anchor', 'end');
@@ -504,7 +501,7 @@ function renderSkillHistoryChart(skillId, historyData) {
         
         // Horizontal grid line
         if (i > 0) {
-            const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            const gridLine = createSvgElement('line');
             gridLine.setAttribute('x1', 0);
             gridLine.setAttribute('y1', tickY);
             gridLine.setAttribute('x2', width);
@@ -516,7 +513,7 @@ function renderSkillHistoryChart(skillId, historyData) {
     }
     
     // Y-axis label
-    const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    const yLabel = createSvgElement('text');
     yLabel.setAttribute('transform', `translate(-40,${height/2}) rotate(-90)`);
     yLabel.setAttribute('text-anchor', 'middle');
     yLabel.setAttribute('font-size', '14px');
@@ -524,7 +521,7 @@ function renderSkillHistoryChart(skillId, historyData) {
     yAxis.appendChild(yLabel);
     
     // Create path for the line
-    const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const linePath = createSvgElement('path');
     
     // Generate line path
     let pathData = '';
@@ -534,8 +531,7 @@ function renderSkillHistoryChart(skillId, historyData) {
         const y = yScale(parsedData[0].value);
         pathData = `M 0 ${y} L ${width} ${y}`;
     } else if (sameDay) {
-        // For multiple data points on the same day, create a step function 
-        // that rises at the middle of the chart
+        // For multiple data points on the same day, create a step function
         const centerX = width / 2;
         let currentY = height; // Start at bottom
         
@@ -558,11 +554,7 @@ function renderSkillHistoryChart(skillId, historyData) {
             const x = xScale(d.date);
             const y = yScale(d.value);
             
-            if (i === 0) {
-                pathData += `M ${x} ${y}`;
-            } else {
-                pathData += ` L ${x} ${y}`;
-            }
+            pathData += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
         });
     }
     
@@ -572,14 +564,42 @@ function renderSkillHistoryChart(skillId, historyData) {
     linePath.setAttribute('stroke-width', '3');
     g.appendChild(linePath);
     
-    // Add data points
+    // Function to create tooltip elements
+    function createTooltip(x, y, content) {
+        const tooltip = createSvgElement('g');
+        tooltip.setAttribute('class', 'tooltip');
+        tooltip.style.opacity = '0';
+        
+        const tooltipRect = createSvgElement('rect');
+        tooltipRect.setAttribute('x', x - 50);
+        tooltipRect.setAttribute('y', y - 40);
+        tooltipRect.setAttribute('width', '100');
+        tooltipRect.setAttribute('height', '30');
+        tooltipRect.setAttribute('fill', '#333');
+        tooltipRect.setAttribute('rx', '5');
+        tooltipRect.setAttribute('ry', '5');
+        tooltip.appendChild(tooltipRect);
+        
+        const tooltipText = createSvgElement('text');
+        tooltipText.setAttribute('x', x);
+        tooltipText.setAttribute('y', y - 20);
+        tooltipText.setAttribute('text-anchor', 'middle');
+        tooltipText.setAttribute('fill', '#fff');
+        tooltipText.setAttribute('font-size', '12px');
+        tooltipText.textContent = content;
+        tooltip.appendChild(tooltipText);
+        
+        return tooltip;
+    }
+    
+    // Add data points with tooltips based on chart type
     if (singleDataPoint) {
         // For single data point, add central visible point
         const x = xScale(parsedData[0].date);
         const y = yScale(parsedData[0].value);
         
         // Point circle
-        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        const circle = createSvgElement('circle');
         circle.setAttribute('cx', x);
         circle.setAttribute('cy', y);
         circle.setAttribute('r', '5');
@@ -589,7 +609,7 @@ function renderSkillHistoryChart(skillId, historyData) {
         g.appendChild(circle);
         
         // Add note about constant value
-        const noteText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const noteText = createSvgElement('text');
         noteText.setAttribute('x', width / 2);
         noteText.setAttribute('y', height / 2 - 20);
         noteText.setAttribute('text-anchor', 'middle');
@@ -599,11 +619,11 @@ function renderSkillHistoryChart(skillId, historyData) {
         noteText.textContent = 'Constant skill level since acquisition';
         g.appendChild(noteText);
     } else if (sameDay) {
-        // For same day points, position them in a vertical line
+        // For same day points, add a note and tooltips
         const centerX = width / 2;
         
         // Add note about same-day progression
-        const noteText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const noteText = createSvgElement('text');
         noteText.setAttribute('x', width / 2);
         noteText.setAttribute('y', 20);
         noteText.setAttribute('text-anchor', 'middle');
@@ -619,8 +639,7 @@ function renderSkillHistoryChart(skillId, historyData) {
             const x = centerX - 10 + (i * 20 / parsedData.length);
             const y = yScale(d.value);
             
-            // Point circle
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            const circle = createSvgElement('circle');
             circle.setAttribute('cx', x);
             circle.setAttribute('cy', y);
             circle.setAttribute('r', '5');
@@ -629,30 +648,8 @@ function renderSkillHistoryChart(skillId, historyData) {
             circle.setAttribute('stroke-width', '2');
             g.appendChild(circle);
             
-            // Tooltip hover effects and value display
-            const tooltip = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            tooltip.setAttribute('class', 'tooltip');
-            tooltip.style.opacity = '0';
+            const tooltip = createTooltip(x, y, `Milestone ${i+1}: ${d.value}`);
             g.appendChild(tooltip);
-            
-            const tooltipRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            tooltipRect.setAttribute('x', x - 50);
-            tooltipRect.setAttribute('y', y - 40);
-            tooltipRect.setAttribute('width', '100');
-            tooltipRect.setAttribute('height', '30');
-            tooltipRect.setAttribute('fill', '#333');
-            tooltipRect.setAttribute('rx', '5');
-            tooltipRect.setAttribute('ry', '5');
-            tooltip.appendChild(tooltipRect);
-            
-            const tooltipText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            tooltipText.setAttribute('x', x);
-            tooltipText.setAttribute('y', y - 20);
-            tooltipText.setAttribute('text-anchor', 'middle');
-            tooltipText.setAttribute('fill', '#fff');
-            tooltipText.setAttribute('font-size', '12px');
-            tooltipText.textContent = `Milestone ${i+1}: ${d.value}`;
-            tooltip.appendChild(tooltipText);
             
             circle.addEventListener('mouseover', () => {
                 tooltip.style.opacity = '1';
@@ -670,8 +667,7 @@ function renderSkillHistoryChart(skillId, historyData) {
             const x = xScale(d.date);
             const y = yScale(d.value);
             
-            // Point circle
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            const circle = createSvgElement('circle');
             circle.setAttribute('cx', x);
             circle.setAttribute('cy', y);
             circle.setAttribute('r', '5');
@@ -680,30 +676,8 @@ function renderSkillHistoryChart(skillId, historyData) {
             circle.setAttribute('stroke-width', '2');
             g.appendChild(circle);
             
-            // Tooltip hover effects and value display
-            const tooltip = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            tooltip.setAttribute('class', 'tooltip');
-            tooltip.style.opacity = '0';
+            const tooltip = createTooltip(x, y, `Value: ${d.value}`);
             g.appendChild(tooltip);
-            
-            const tooltipRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            tooltipRect.setAttribute('x', x - 50);
-            tooltipRect.setAttribute('y', y - 40);
-            tooltipRect.setAttribute('width', '100');
-            tooltipRect.setAttribute('height', '30');
-            tooltipRect.setAttribute('fill', '#333');
-            tooltipRect.setAttribute('rx', '5');
-            tooltipRect.setAttribute('ry', '5');
-            tooltip.appendChild(tooltipRect);
-            
-            const tooltipText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            tooltipText.setAttribute('x', x);
-            tooltipText.setAttribute('y', y - 20);
-            tooltipText.setAttribute('text-anchor', 'middle');
-            tooltipText.setAttribute('fill', '#fff');
-            tooltipText.setAttribute('font-size', '12px');
-            tooltipText.textContent = `Value: ${d.value}`;
-            tooltip.appendChild(tooltipText);
             
             circle.addEventListener('mouseover', () => {
                 tooltip.style.opacity = '1';
@@ -745,7 +719,7 @@ function handleSkillClick(skill, skillHistoryData) {
         }
     });
     
-    // Later you will implement the detail chart here
+    // Render the detail chart or show message
     if (skillHistoryData && skillHistoryData[skill.id]) {
         renderSkillHistoryChart(skill.id, skillHistoryData);
     } else {
@@ -755,6 +729,7 @@ function handleSkillClick(skill, skillHistoryData) {
             <p>No historical data available for this skill.</p>
         `;
     }
+    
     // Scroll to the detail section
     detailContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -785,21 +760,35 @@ function renderXpLineChart(data) {
     
     let activeTab = categories[0]; // Default active tab
     
+    // Function to format XP values
+    function formatXp(xp) {
+        if (xp >= 1000000) {
+            // Show 3 significant digits for values ≥ 1MB
+            const value = xp / 1000000;
+            return value < 10 ? `${value.toFixed(2)}MB` : 
+                   value < 100 ? `${value.toFixed(1)}MB` : 
+                   `${Math.round(value)}MB`;
+        } else if (xp >= 1000) {
+            // Show 3 significant digits for values ≥ 1KB
+            const value = xp / 1000;
+            return value < 10 ? `${value.toFixed(2)}KB` : 
+                   value < 100 ? `${value.toFixed(1)}KB` : 
+                   `${Math.round(value)}KB`;
+        } else {
+            // For small values, show the exact number
+            return xp.toString();
+        }
+    }
+    
+    // Create tab elements
     categories.forEach(category => {
         const tab = document.createElement('div');
         tab.className = 'xp-tab';
         
-        // Check if we're on mobile screen
         const isMobile = window.innerWidth < 480;
-        
-        // Format tab text differently based on screen size
-        if (isMobile) {
-            // For mobile: shorter text with no value in the tab label
-            tab.textContent = tabLabels[category];
-        } else {
-            // For desktop: full text with value
-            tab.textContent = `${tabLabels[category]} (${formatXp(data.totals[category])})`;
-        }
+        tab.textContent = isMobile ? 
+            tabLabels[category] : 
+            `${tabLabels[category]} (${formatXp(data.totals[category])})`;
         
         tab.dataset.category = category;
         tab.style.cssText = 'padding: 8px 15px; margin: 0 5px; cursor: pointer; border-radius: 5px; transition: all 0.2s ease;';
@@ -840,29 +829,6 @@ function renderXpLineChart(data) {
     chartContainer.style.position = 'relative';
     container.appendChild(chartContainer);
     
-    // Draw initial chart
-    drawChart(data[activeTab], container.clientWidth, 300);
-    
-    // Function to format XP values
-    function formatXp(xp) {
-        if (xp >= 1000000) {
-            // Show 3 significant digits for values ≥ 1MB
-            const value = xp / 1000000;
-            return value < 10 ? `${value.toFixed(2)}MB` : 
-                   value < 100 ? `${value.toFixed(1)}MB` : 
-                   `${Math.round(value)}MB`;
-        } else if (xp >= 1000) {
-            // Show 3 significant digits for values ≥ 1KB
-            const value = xp / 1000;
-            return value < 10 ? `${value.toFixed(2)}KB` : 
-                   value < 100 ? `${value.toFixed(1)}KB` : 
-                   `${Math.round(value)}KB`;
-        } else {
-            // For small values, show the exact number
-            return xp.toString();
-        }
-    }
-    
     // Function to draw the chart
     function drawChart(dataPoints, width, height) {
         // Clear previous chart
@@ -882,13 +848,13 @@ function renderXpLineChart(data) {
         const chartHeight = height - margin.top - margin.bottom;
         
         // Create SVG element
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        const svg = createSvgElement('svg');
         svg.setAttribute('width', width);
         svg.setAttribute('height', height);
         chartContainer.appendChild(svg);
         
         // Create chart group
-        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const g = createSvgElement('g');
         g.setAttribute('transform', `translate(${margin.left},${margin.top})`);
         svg.appendChild(g);
         
@@ -915,7 +881,7 @@ function renderXpLineChart(data) {
         const yTickCount = 5;
         for (let i = 0; i <= yTickCount; i++) {
             const yPos = chartHeight * (i / yTickCount);
-            const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            const gridLine = createSvgElement('line');
             gridLine.setAttribute('x1', 0);
             gridLine.setAttribute('y1', yPos);
             gridLine.setAttribute('x2', chartWidth);
@@ -926,7 +892,7 @@ function renderXpLineChart(data) {
             
             // Y-axis labels
             const yValue = sortedData[sortedData.length - 1].cumulative * (1 - i / yTickCount) * 1.1;
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            const label = createSvgElement('text');
             label.setAttribute('x', -10);
             label.setAttribute('y', yPos);
             label.setAttribute('text-anchor', 'end');
@@ -938,12 +904,12 @@ function renderXpLineChart(data) {
         }
         
         // X-axis (Date)
-        const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const xAxis = createSvgElement('g');
         xAxis.setAttribute('transform', `translate(0,${chartHeight})`);
         g.appendChild(xAxis);
         
         // X-axis line
-        const xAxisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const xAxisLine = createSvgElement('line');
         xAxisLine.setAttribute('x1', 0);
         xAxisLine.setAttribute('y1', 0);
         xAxisLine.setAttribute('x2', chartWidth);
@@ -957,7 +923,7 @@ function renderXpLineChart(data) {
             const xPos = chartWidth * (i / xTickCount);
             
             // Tick
-            const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            const tick = createSvgElement('line');
             tick.setAttribute('x1', xPos);
             tick.setAttribute('y1', 0);
             tick.setAttribute('x2', xPos);
@@ -967,7 +933,7 @@ function renderXpLineChart(data) {
             
             // Date label
             const date = new Date(extendedDateMin.getTime() + (extendedDateMax - extendedDateMin) * (i / xTickCount));
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            const label = createSvgElement('text');
             label.setAttribute('x', xPos);
             label.setAttribute('y', 20);
             label.setAttribute('text-anchor', 'middle');
@@ -978,7 +944,7 @@ function renderXpLineChart(data) {
         }
         
         // Y-axis line
-        const yAxisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const yAxisLine = createSvgElement('line');
         yAxisLine.setAttribute('x1', 0);
         yAxisLine.setAttribute('y1', 0);
         yAxisLine.setAttribute('x2', 0);
@@ -987,7 +953,7 @@ function renderXpLineChart(data) {
         g.appendChild(yAxisLine);
         
         // Y-axis label
-        const yAxisLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const yAxisLabel = createSvgElement('text');
         yAxisLabel.setAttribute('transform', `translate(-40,${chartHeight/2}) rotate(-90)`);
         yAxisLabel.setAttribute('text-anchor', 'middle');
         yAxisLabel.setAttribute('font-size', '14px');
@@ -996,7 +962,7 @@ function renderXpLineChart(data) {
         g.appendChild(yAxisLabel);
         
         // X-axis label
-        const xAxisLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const xAxisLabel = createSvgElement('text');
         xAxisLabel.setAttribute('x', chartWidth / 2);
         xAxisLabel.setAttribute('y', chartHeight + 40);
         xAxisLabel.setAttribute('text-anchor', 'middle');
@@ -1012,21 +978,8 @@ function renderXpLineChart(data) {
             const x = xScale(new Date(dataPoint.timestamp));
             const y = yScale(dataPoint.cumulative);
             
-            if (i === 0) {
-                pathData = `M ${x} ${y}`;
-            } else {
-                pathData += ` L ${x} ${y}`;
-            }
+            pathData += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
         });
-        
-        // Create path element
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', pathData);
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', '#4CAF50');
-        path.setAttribute('stroke-width', '3');
-        path.setAttribute('stroke-linejoin', 'round');
-        g.appendChild(path);
         
         // Create area under the line
         let areaPathData = pathData;
@@ -1034,11 +987,20 @@ function renderXpLineChart(data) {
         areaPathData += ` L ${xScale(new Date(sortedData[0].timestamp))} ${chartHeight}`;
         areaPathData += ' Z';
         
-        const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const areaPath = createSvgElement('path');
         areaPath.setAttribute('d', areaPathData);
         areaPath.setAttribute('fill', 'rgba(76, 175, 80, 0.1)');
         areaPath.setAttribute('stroke', 'none');
-        g.insertBefore(areaPath, path); // Insert area behind the line
+        g.appendChild(areaPath);
+        
+        // Create path element
+        const path = createSvgElement('path');
+        path.setAttribute('d', pathData);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', '#4CAF50');
+        path.setAttribute('stroke-width', '3');
+        path.setAttribute('stroke-linejoin', 'round');
+        g.appendChild(path);
         
         // Add data points with tooltips
         sortedData.forEach((dataPoint) => {
@@ -1046,7 +1008,7 @@ function renderXpLineChart(data) {
             const y = yScale(dataPoint.cumulative);
             
             // Create circle for data point
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            const circle = createSvgElement('circle');
             circle.setAttribute('cx', x);
             circle.setAttribute('cy', y);
             circle.setAttribute('r', '4');
@@ -1056,13 +1018,13 @@ function renderXpLineChart(data) {
             g.appendChild(circle);
             
             // Create tooltip group
-            const tooltip = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const tooltip = createSvgElement('g');
             tooltip.setAttribute('opacity', '0');
             tooltip.style.pointerEvents = 'none';
             g.appendChild(tooltip);
             
             // Tooltip background
-            const tooltipBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            const tooltipBg = createSvgElement('rect');
             tooltipBg.setAttribute('x', x - 75);
             tooltipBg.setAttribute('y', y - 65);
             tooltipBg.setAttribute('width', '150');
@@ -1073,7 +1035,7 @@ function renderXpLineChart(data) {
             tooltip.appendChild(tooltipBg);
             
             // Tooltip text - date
-            const dateText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            const dateText = createSvgElement('text');
             dateText.setAttribute('x', x);
             dateText.setAttribute('y', y - 45);
             dateText.setAttribute('text-anchor', 'middle');
@@ -1083,7 +1045,7 @@ function renderXpLineChart(data) {
             tooltip.appendChild(dateText);
             
             // Tooltip text - XP info
-            const xpText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            const xpText = createSvgElement('text');
             xpText.setAttribute('x', x);
             xpText.setAttribute('y', y - 25);
             xpText.setAttribute('text-anchor', 'middle');
@@ -1105,6 +1067,9 @@ function renderXpLineChart(data) {
         });
     }
     
+    // Draw initial chart
+    drawChart(data[activeTab], container.clientWidth, 300);
+    
     // Handle window resize
     const debouncedResize = debounce(() => {
         // Update chart if container width changed
@@ -1117,13 +1082,9 @@ function renderXpLineChart(data) {
             document.querySelectorAll('.xp-tab').forEach(tab => {
                 const category = tab.dataset.category;
                 
-                if (isMobile) {
-                    // Short format for mobile
-                    tab.textContent = tabLabels[category];
-                } else {
-                    // Full format for desktop
-                    tab.textContent = `${tabLabels[category]} (${formatXp(data.totals[category])})`;
-                }
+                tab.textContent = isMobile ? 
+                    tabLabels[category] : 
+                    `${tabLabels[category]} (${formatXp(data.totals[category])})`;
             });
         }
     }, 250);
@@ -1140,6 +1101,7 @@ function renderProgressTable(progressData) {
     
     // Create container for the tabs and tables
     const container = document.getElementById('progress-graph');
+    if (!container) return;
     
     // Create tab navigation
     const tabsHTML = `
@@ -1157,6 +1119,62 @@ function renderProgressTable(progressData) {
     `;
     
     container.innerHTML = tabsHTML;
+    
+    // Function to merge entries for the same project
+    function mergeEntriesByProject(entries) {
+        if (!entries || entries.length === 0) return [];
+        
+        // Group entries by project path
+        const projectGroups = {};
+        
+        entries.forEach(entry => {
+            if (!projectGroups[entry.path]) {
+                projectGroups[entry.path] = [];
+            }
+            projectGroups[entry.path].push(entry);
+        });
+        
+        // Process each group to merge if needed
+        const mergedEntries = [];
+        
+        Object.keys(projectGroups).forEach(path => {
+            const projectEntries = projectGroups[path];
+            
+            // Sort by date (newest first)
+            projectEntries.sort((a, b) => b.date - a.date);
+            
+            // Get the latest entry (which will be our base)
+            const latestEntry = projectEntries[0];
+            
+            // Check if this project has multiple entries and at least one is successful
+            const hasSuccessful = projectEntries.some(entry => entry.isCompleted);
+            
+            if (projectEntries.length > 1) {
+                // If there's a successful entry, use it as the base
+                const successfulEntry = hasSuccessful ? 
+                    projectEntries.find(entry => entry.isCompleted) : 
+                    latestEntry;
+                
+                // Count attempts
+                successfulEntry.attempts = projectEntries.length;
+                
+                // Add additional info to the tooltip
+                const attemptDates = projectEntries
+                    .map(e => `${e.formattedDate}: ${e.grade !== null ? e.grade.toFixed(2) : 'No Grade'}`)
+                    .join('\n');
+                
+                successfulEntry.attemptDates = attemptDates;
+                
+                mergedEntries.push(successfulEntry);
+            } else {
+                // Just a single entry, add it as is
+                mergedEntries.push(latestEntry);
+            }
+        });
+        
+        // Sort final result by date (newest first)
+        return mergedEntries.sort((a, b) => b.date - a.date);
+    }
     
     // Function to generate a table for a specific category
     function generateTable(entries, containerId) {
@@ -1244,60 +1262,6 @@ function renderProgressTable(progressData) {
         `;
         
         scrollWrapper.innerHTML = tableHTML;
-    }
-    
-    // Function to merge entries for the same project
-    function mergeEntriesByProject(entries) {
-        // Group entries by project path
-        const projectGroups = {};
-        
-        entries.forEach(entry => {
-            if (!projectGroups[entry.path]) {
-                projectGroups[entry.path] = [];
-            }
-            projectGroups[entry.path].push(entry);
-        });
-        
-        // Process each group to merge if needed
-        const mergedEntries = [];
-        
-        Object.keys(projectGroups).forEach(path => {
-            const projectEntries = projectGroups[path];
-            
-            // Sort by date (newest first)
-            projectEntries.sort((a, b) => b.date - a.date);
-            
-            // Get the latest entry (which will be our base)
-            const latestEntry = projectEntries[0];
-            
-            // Check if this project has multiple entries and at least one is successful
-            const hasSuccessful = projectEntries.some(entry => entry.isCompleted);
-            
-            if (projectEntries.length > 1) {
-                // If there's a successful entry, use it as the base
-                const successfulEntry = hasSuccessful ? 
-                    projectEntries.find(entry => entry.isCompleted) : 
-                    latestEntry;
-                
-                // Count attempts
-                successfulEntry.attempts = projectEntries.length;
-                
-                // Add additional info to the tooltip
-                const attemptDates = projectEntries
-                    .map(e => `${e.formattedDate}: ${e.grade !== null ? e.grade.toFixed(2) : 'No Grade'}`)
-                    .join('\n');
-                
-                successfulEntry.attemptDates = attemptDates;
-                
-                mergedEntries.push(successfulEntry);
-            } else {
-                // Just a single entry, add it as is
-                mergedEntries.push(latestEntry);
-            }
-        });
-        
-        // Sort final result by date (newest first)
-        return mergedEntries.sort((a, b) => b.date - a.date);
     }
     
     // Generate tables for each category
